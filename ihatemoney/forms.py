@@ -9,10 +9,25 @@ from flask_wtf.file import FileAllowed, FileField, FileRequired
 from flask_wtf.form import FlaskForm
 from markupsafe import Markup
 from werkzeug.security import check_password_hash, generate_password_hash
-from wtforms.fields.core import Label, SelectField, SelectMultipleField
-from wtforms.fields.html5 import DateField, DecimalField, URLField
-from wtforms.fields.simple import BooleanField, PasswordField, StringField, SubmitField
+from wtforms.fields import (
+    BooleanField,
+    DateField,
+    DecimalField,
+    Label,
+    PasswordField,
+    SelectField,
+    SelectMultipleField,
+    StringField,
+    SubmitField,
+)
+
+try:
+    # Compat for WTForms <= 2.3.3
+    from wtforms.fields.html5 import URLField
+except ModuleNotFoundError:
+    from wtforms.fields import URLField
 from wtforms.validators import (
+    URL,
     DataRequired,
     Email,
     EqualTo,
@@ -22,7 +37,7 @@ from wtforms.validators import (
 )
 
 from ihatemoney.currency_convertor import CurrencyConverter
-from ihatemoney.models import LoggingMode, Person, Project
+from ihatemoney.models import Bill, LoggingMode, Person, Project
 from ihatemoney.utils import (
     eval_arithmetic_expression,
     render_localized_currency,
@@ -40,8 +55,8 @@ def strip_filter(string):
 def get_billform_for(project, set_default=True, **kwargs):
     """Return an instance of BillForm configured for a particular project.
 
-    :set_default: if set to True, on GET methods (usually when we want to
-                  display the default form, it will call set_default on it.
+    :set_default: if set to True, it will call set_default on GET methods (usually
+                  when we want to display the default form).
 
     """
     form = BillForm(**kwargs)
@@ -112,7 +127,14 @@ class EditProjectForm(FlaskForm):
     project_history = BooleanField(_("Enable project history"))
     ip_recording = BooleanField(_("Use IP tracking for project history"))
     currency_helper = CurrencyConverter()
-    default_currency = SelectField(_("Default Currency"), validators=[DataRequired()])
+    default_currency = SelectField(
+        _("Default Currency"),
+        validators=[DataRequired()],
+        default=CurrencyConverter.no_currency,
+        description=_(
+            "Setting a default currency enables currency conversion between bills"
+        ),
+    )
 
     def __init__(self, *args, **kwargs):
         if not hasattr(self, "id"):
@@ -174,13 +196,15 @@ class EditProjectForm(FlaskForm):
         return project
 
 
-class UploadForm(FlaskForm):
+class ImportProjectForm(FlaskForm):
     file = FileField(
-        "JSON",
-        validators=[FileRequired(), FileAllowed(["json", "JSON"], "JSON only!")],
-        description=_("Import previously exported JSON file"),
+        "File",
+        validators=[
+            FileRequired(),
+            FileAllowed(["json", "JSON", "csv", "CSV"], "Incorrect file format"),
+        ],
+        description=_("Compatible with Cospend"),
     )
-    submit = SubmitField(_("Import"))
 
 
 class ProjectForm(EditProjectForm):
@@ -221,6 +245,46 @@ class ProjectForm(EditProjectForm):
             raise ValidationError(Markup(message))
 
 
+class ProjectFormWithCaptcha(ProjectForm):
+    captcha = StringField(
+        _("Which is a real currency: Euro or Petro dollar?"), default=""
+    )
+
+    def validate_captcha(form, field):
+        if not field.data.lower() == _("euro"):
+            message = _("Please, validate the captcha to proceed.")
+            raise ValidationError(Markup(message))
+
+
+class DestructiveActionProjectForm(FlaskForm):
+    """Used for any important "delete" action linked to a project:
+
+    - delete project itself
+    - delete history
+    - delete IP addresses in history
+
+    It asks the participant to enter the private code to confirm deletion.
+    """
+
+    password = PasswordField(
+        _("Private code"),
+        description=_("Enter private code to confirm deletion"),
+        validators=[DataRequired()],
+    )
+
+    def __init__(self, *args, **kwargs):
+        # Same trick as EditProjectForm: we need to know the project ID
+        self.id = SimpleNamespace(data=kwargs.pop("id", ""))
+        super().__init__(*args, **kwargs)
+
+    def validate_password(form, field):
+        project = Project.query.get(form.id.data)
+        if project is None:
+            raise ValidationError(_("Unknown error"))
+        if not check_password_hash(project.password, form.password.data):
+            raise ValidationError(_("Invalid private code."))
+
+
 class AuthenticationForm(FlaskForm):
     id = StringField(_("Project identifier"), validators=[DataRequired()])
     password = PasswordField(_("Private code"), validators=[DataRequired()])
@@ -254,15 +318,16 @@ class ResetPasswordForm(FlaskForm):
 
 
 class BillForm(FlaskForm):
-    date = DateField(_("Date"), validators=[DataRequired()], default=datetime.now)
+    date = DateField(_("When?"), validators=[DataRequired()], default=datetime.now)
     what = StringField(_("What?"), validators=[DataRequired()])
-    payer = SelectField(_("Payer"), validators=[DataRequired()], coerce=int)
-    amount = CalculatorStringField(_("Amount paid"), validators=[DataRequired()])
+    payer = SelectField(_("Who paid?"), validators=[DataRequired()], coerce=int)
+    amount = CalculatorStringField(_("How much?"), validators=[DataRequired()])
     currency_helper = CurrencyConverter()
     original_currency = SelectField(_("Currency"), validators=[DataRequired()])
     external_link = URLField(
         _("External link"),
-        validators=[Optional()],
+        default="",
+        validators=[Optional(), URL()],
         description=_("A link to an external document, related to this bill"),
     )
     payed_for = SelectMultipleField(
@@ -271,31 +336,29 @@ class BillForm(FlaskForm):
     submit = SubmitField(_("Submit"))
     submit2 = SubmitField(_("Submit and add a new one"))
 
+    def export(self, project):
+        return Bill(
+            amount=float(self.amount.data),
+            date=self.date.data,
+            external_link=self.external_link.data,
+            original_currency=str(self.original_currency.data),
+            owers=Person.query.get_by_ids(self.payed_for.data, project),
+            payer_id=self.payer.data,
+            project_default_currency=project.default_currency,
+            what=self.what.data,
+        )
+
     def save(self, bill, project):
         bill.payer_id = self.payer.data
         bill.amount = self.amount.data
         bill.what = self.what.data
         bill.external_link = self.external_link.data
         bill.date = self.date.data
-        bill.owers = [Person.query.get(ower, project) for ower in self.payed_for.data]
+        bill.owers = Person.query.get_by_ids(self.payed_for.data, project)
         bill.original_currency = self.original_currency.data
         bill.converted_amount = self.currency_helper.exchange_currency(
             bill.amount, bill.original_currency, project.default_currency
         )
-        return bill
-
-    def fake_form(self, bill, project):
-        bill.payer_id = self.payer
-        bill.amount = self.amount
-        bill.what = self.what
-        bill.external_link = ""
-        bill.date = self.date
-        bill.owers = [Person.query.get(ower, project) for ower in self.payed_for]
-        bill.original_currency = CurrencyConverter.no_currency
-        bill.converted_amount = self.currency_helper.exchange_currency(
-            bill.amount, bill.original_currency, project.default_currency
-        )
-
         return bill
 
     def fill(self, bill, project):
@@ -337,7 +400,7 @@ class MemberForm(FlaskForm):
 
     def validate_name(form, field):
         if field.data == form.name.default:
-            raise ValidationError(_("User name incorrect"))
+            raise ValidationError(_("The participant name is invalid"))
         if (
             not form.edit
             and Person.query.filter(
@@ -346,7 +409,7 @@ class MemberForm(FlaskForm):
                 Person.activated,
             ).all()
         ):  # NOQA
-            raise ValidationError(_("This project already have this member"))
+            raise ValidationError(_("This project already have this participant"))
 
     def save(self, project, person):
         # if the user is already bound to the project, just reactivate him
@@ -373,3 +436,9 @@ class InviteForm(FlaskForm):
                 raise ValidationError(
                     _("The email %(email)s is not valid", email=email)
                 )
+
+
+class EmptyForm(FlaskForm):
+    """Used for CSRF validation"""
+
+    pass

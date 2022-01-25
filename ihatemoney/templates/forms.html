@@ -14,7 +14,7 @@
             {{ field(class=class, placeholder=placeholder) | safe }}
         {% endif %}
         {% if field.description %}
-            <small id="{{field.name}}_description"" class="form-text text-muted">{{ field.description }}</small>
+            <small id="{{field.name}}_description" class="form-text text-muted">{{ field.description }}</small>
         {% endif %}
         </div>
     </div>
@@ -25,7 +25,7 @@
         {{ field(id=field.name) }}
         <label for="{{ field.name }}">{{ field.label() }}</label>
     {% if field.description %}
-        <small id="{{field.name}}_description"" class="form-text text-muted">{{ field.description }}</small>
+        <small id="{{field.name}}_description" class="form-text text-muted">{{ field.description }}</small>
     {% endif %}
     </div>
 {% endmacro %}
@@ -75,7 +75,9 @@
     {{ input(form.name) }}
     {{ input(form.password) }}
     {{ input(form.contact_email) }}
-    {{ input(form.default_currency) }}
+    {% if config['ENABLE_CAPTCHA'] %}
+    {{ input(form.captcha) }}
+    {% endif %}
     {% if not home %}
     {{ submit(form.submit, home=True) }}
     {% endif %}
@@ -100,18 +102,59 @@
     {{ input(form.default_currency) }}
     <div class="actions">
         <button class="btn btn-primary">{{ _("Edit the project") }}</button>
-        <a id="delete-project" style="color:red; margin-left:10px; cursor:pointer; ">{{ _("delete") }}</a>
     </div>
 
 {% endmacro %}
 
-{% macro upload_json(form) %}
+{% macro delete_project(form) %}
+
+    {% include "display_errors.html" %}
+    <p><strong>{{ _("This will remove all bills and participants in this project!") }}</strong></p>
+    {{ form.hidden_tag() }}
+    {{ input(form.password) }}
+    <div class="actions">
+        <button class="btn btn-primary">{{ _("Delete project") }}</button>
+    </div>
+
+{% endmacro %}
+
+{% macro import_project(form) %}
+
     {% include "display_errors.html" %}
     {{ form.hidden_tag() }}
-    {{ form.file }}
-    <div class="actions">
-        <button class="btn btn-primary">{{ _("Import") }}</button>
+
+    <p><strong>{{ _("Import previously exported project") }}</strong></p>
+
+    <div class="custom-file">
+        <div class="form-group">
+            {{ form.file(class="custom-file-input", accept=".json,.csv") }}
+            <small class="form-text text-muted">
+                {{ form.file.description }}
+            </small>
+        </div>
+        <label class="custom-file-label" for="customFile">{{ _('Choose file') }}</label>
     </div>
+
+    <div class="actions">
+        <button class="btn btn-primary">{{ _("Import project") }}</button>
+    </div>
+
+{% endmacro %}
+
+{% macro delete_project_history(form) %}
+
+    {% include "display_errors.html" %}
+    {{ form.hidden_tag() }}
+    {{ input(form.password, inline=True) }}
+
+{% endmacro %}
+
+{% macro delete_ip_addresses(form) %}
+
+    {% include "display_errors.html" %}
+    {{ form.hidden_tag() }}
+    {{ input(form.password) }}
+
 {% endmacro %}
 
 {% macro add_bill(form, edit=False, title=True) %}
@@ -144,7 +187,7 @@
             </div>
         </div>
     </div>
-    
+
     <details class="mb-3">
         <summary class="mb-2">{{ _("More options") }}</summary>
         {% if g.project.default_currency != "XXX" %}
@@ -174,7 +217,7 @@
 
 {% macro edit_member(form, title=True) %}
     <fieldset>
-        {% if title %}<legend>{{ _("Edit this member") }}</legend>{% endif %}
+        {% if title %}<legend>{{ _("Edit this participant") }}</legend>{% endif %}
     {% include "display_errors.html" %}
     {{ form.hidden_tag() }}
     {{ input(form.name) }}

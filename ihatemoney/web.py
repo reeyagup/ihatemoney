@@ -8,13 +8,10 @@ Basically, this blueprint takes care of the authentication and provides
 some shortcuts to make your life better when coding (see `pull_project`
 and `add_project_id` for a quick overview)
 """
-from datetime import datetime
 from functools import wraps
 import json
 import os
 
-from dateutil.parser import parse
-from dateutil.relativedelta import relativedelta
 from flask import (
     Blueprint,
     abort,
@@ -31,21 +28,25 @@ from flask import (
 )
 from flask_babel import gettext as _
 from flask_mail import Message
-from sqlalchemy import orm
 from sqlalchemy_continuum import Operation
 from werkzeug.exceptions import NotFound
 from werkzeug.security import check_password_hash, generate_password_hash
 
+from ihatemoney.currency_convertor import CurrencyConverter
+from ihatemoney.emails import send_creation_email
 from ihatemoney.forms import (
     AdminAuthenticationForm,
     AuthenticationForm,
+    DestructiveActionProjectForm,
     EditProjectForm,
+    EmptyForm,
+    ImportProjectForm,
     InviteForm,
     MemberForm,
     PasswordReminder,
     ProjectForm,
+    ProjectFormWithCaptcha,
     ResetPasswordForm,
-    UploadForm,
     get_billform_for,
 )
 from ihatemoney.history import get_history, get_history_queries
@@ -53,11 +54,11 @@ from ihatemoney.models import Bill, LoggingMode, Person, Project, db
 from ihatemoney.utils import (
     LoginThrottler,
     Redirect303,
-    get_members,
+    csv2list_of_dicts,
+    format_form_errors,
     list_of_dicts2csv,
     list_of_dicts2json,
     render_localized_template,
-    same_bill,
     send_email,
 )
 
@@ -69,7 +70,7 @@ login_throttler = LoginThrottler(max_attempts=3, delay=1)
 def requires_admin(bypass=None):
     """Require admin permissions for @requires_admin decorated endpoints.
 
-    This has no effect if ADMIN_PASSWORD is empty.
+    This has no effect if the ADMIN_PASSWORD is empty.
 
     :param bypass: Used to conditionnaly bypass the admin authentication.
                    It expects a tuple containing the name of an application
@@ -132,19 +133,26 @@ def pull_project(endpoint, values):
         return
     if not values:
         values = {}
-    project_id = values.pop("project_id", None)
-    if project_id:
+    entered_project_id = values.pop("project_id", None)
+    if entered_project_id:
+        project_id = entered_project_id.lower()
         project = Project.query.get(project_id)
         if not project:
             raise Redirect303(url_for(".create_project", project_id=project_id))
 
         is_admin = session.get("is_admin")
-        if session.get(project.id) or is_admin:
+        is_invitation = endpoint == "main.join_project"
+        if session.get(project.id) or is_admin or is_invitation:
             # add project into kwargs and call the original function
             g.project = project
         else:
             # redirect to authentication page
             raise Redirect303(url_for(".authenticate", project_id=project_id))
+
+
+@main.route("/healthcheck", methods=["GET"])
+def health():
+    return "OK"
 
 
 @main.route("/admin", methods=["GET", "POST"])
@@ -191,28 +199,38 @@ def admin():
     )
 
 
+@main.route("/<project_id>/join/<string:token>", methods=["GET"])
+def join_project(token):
+    project_id = g.project.id
+    verified_project_id = Project.verify_token(
+        token, token_type="auth", project_id=project_id
+    )
+    if verified_project_id != project_id:
+        flash(_("Provided token is invalid"), "danger")
+        return redirect("/")
+
+    # maintain a list of visited projects
+    if "projects" not in session:
+        session["projects"] = []
+    # add the project on the top of the list
+    session["projects"].insert(0, (project_id, g.project.name))
+    session[project_id] = True
+    # Set session to permanent to make language choice persist
+    session.permanent = True
+    session.update()
+    return redirect(url_for(".list_bills"))
+
+
 @main.route("/authenticate", methods=["GET", "POST"])
 def authenticate(project_id=None):
     """Authentication form"""
     form = AuthenticationForm()
-    # Try to get project_id from token first
-    token = request.args.get("token")
-    if token:
-        project_id = Project.verify_token(token, token_type="non_timed_token")
-        token_auth = True
-    else:
-        if not form.id.data and request.args.get("project_id"):
-            form.id.data = request.args["project_id"]
-        project_id = form.id.data
-        token_auth = False
-    if project_id is None:
-        # User doesn't provide project identifier or a valid token
-        # return to authenticate form
-        msg = _("You either provided a bad token or no project identifier.")
-        form["id"].errors = [msg]
-        return render_template("authenticate.html", form=form)
 
-    project = Project.query.get(project_id)
+    if not form.id.data and request.args.get("project_id"):
+        form.id.data = request.args["project_id"]
+    project_id = form.id.data.lower() if form.id.data else None
+
+    project = Project.query.get(project_id) if project_id is not None else None
     if not project:
         # If the user try to connect to an unexisting project, we will
         # propose him a link to the creation form.
@@ -225,13 +243,9 @@ def authenticate(project_id=None):
         setattr(g, "project", project)
         return redirect(url_for(".list_bills"))
 
-    # else do form authentication or token authentication
+    # else do form authentication authentication
     is_post_auth = request.method == "POST" and form.validate()
-    if (
-        is_post_auth
-        and check_password_hash(project.password, form.password.data)
-        or token_auth
-    ):
+    if is_post_auth and check_password_hash(project.password, form.password.data):
         # maintain a list of visited projects
         if "projects" not in session:
             session["projects"] = []
@@ -250,9 +264,15 @@ def authenticate(project_id=None):
     return render_template("authenticate.html", form=form)
 
 
+def get_project_form():
+    if current_app.config.get("ENABLE_CAPTCHA", False):
+        return ProjectFormWithCaptcha()
+    return ProjectForm()
+
+
 @main.route("/", strict_slashes=False)
 def home():
-    project_form = ProjectForm()
+    project_form = get_project_form()
     auth_form = AuthenticationForm()
     is_demo_project_activated = current_app.config["ACTIVATE_DEMO_PROJECT"]
     is_public_project_creation_allowed = current_app.config[
@@ -277,7 +297,7 @@ def mobile():
 @main.route("/create", methods=["GET", "POST"])
 @requires_admin(bypass=("ALLOW_PUBLIC_PROJECT_CREATION", True))
 def create_project():
-    form = ProjectForm()
+    form = get_project_form()
     if request.method == "GET" and "project_id" in request.values:
         form.name.data = request.values["project_id"]
 
@@ -301,18 +321,7 @@ def create_project():
 
             # send reminder email
             g.project = project
-
-            message_title = _(
-                "You have just created '%(project)s' " "to share your expenses",
-                project=g.project.name,
-            )
-
-            message_body = render_localized_template("reminder_mail")
-
-            msg = Message(
-                message_title, body=message_body, recipients=[project.contact_email]
-            )
-            success = send_email(msg)
+            success = send_creation_email(project)
             if success:
                 flash(
                     _("A reminder email has just been sent to you"), category="success"
@@ -327,8 +336,6 @@ def create_project():
                     ),
                     category="info",
                 )
-            # redirect the user to the next step (invite)
-            flash(_("The project identifier is %(project)s", project=project.id))
             return redirect(url_for(".list_bills", project_id=project.id))
 
     return render_template("create_project.html", form=form)
@@ -377,7 +384,7 @@ def reset_password():
         return render_template(
             "reset_password.html", form=form, error=_("No token provided")
         )
-    project_id = Project.verify_token(token)
+    project_id = Project.verify_token(token, token_type="reset")
     if not project_id:
         return render_template(
             "reset_password.html", form=form, error=_("Invalid token")
@@ -400,16 +407,8 @@ def reset_password():
 @main.route("/<project_id>/edit", methods=["GET", "POST"])
 def edit_project():
     edit_form = EditProjectForm(id=g.project.id)
-    import_form = UploadForm()
-    # Import form
-    if import_form.validate_on_submit():
-        try:
-            import_project(import_form.file.data.stream, g.project)
-            flash(_("Project successfully uploaded"))
-
-            return redirect(url_for("main.list_bills"))
-        except ValueError:
-            flash(_("Invalid JSON"), category="danger")
+    import_form = ImportProjectForm(id=g.project.id)
+    delete_form = DestructiveActionProjectForm(id=g.project.id)
 
     # Edit form
     if edit_form.validate_on_submit():
@@ -434,88 +433,84 @@ def edit_project():
         "edit_project.html",
         edit_form=edit_form,
         import_form=import_form,
+        delete_form=delete_form,
         current_view="edit_project",
     )
 
 
-def import_project(file, project):
-    json_file = json.load(file)
+@main.route("/<project_id>/import", methods=["POST"])
+def import_project():
+    form = ImportProjectForm()
+    if form.validate():
+        try:
+            data = form.file.data
+            if data.mimetype == "application/json":
+                bills = json.load(data.stream)
+            elif data.mimetype == "text/csv":
+                try:
+                    bills = csv2list_of_dicts(data)
+                except Exception:
+                    raise ValueError(_("Unable to parse CSV"))
+            else:
+                raise ValueError("Unsupported file type")
 
-    # Check if JSON is correct
-    attr = ["what", "payer_name", "payer_weight", "amount", "date", "owers"]
-    attr.sort()
-    for e in json_file:
-        if len(e) != len(attr):
-            raise ValueError
-        list_attr = []
-        for i in e:
-            list_attr.append(i)
-        list_attr.sort()
-        if list_attr != attr:
-            raise ValueError
+            # Check data
+            attr = [
+                "amount",
+                "currency",
+                "date",
+                "owers",
+                "payer_name",
+                "payer_weight",
+                "what",
+            ]
+            currencies = set()
+            for b in bills:
+                if b.get("currency", "") in ["", "XXX"]:
+                    b["currency"] = g.project.default_currency
+                for a in attr:
+                    if a not in b:
+                        raise ValueError(_("Missing attribute {}").format(a))
+                currencies.add(b["currency"])
 
-    # From json : export list of members
-    members_json = get_members(json_file)
-    members = project.members
-    members_already_here = list()
-    for m in members:
-        members_already_here.append(str(m))
+            # Additional checks if project has no default currency
+            if g.project.default_currency == CurrencyConverter.no_currency:
+                # If bills have currencies, they must be consistent
+                if len(currencies - {CurrencyConverter.no_currency}) >= 2:
+                    raise ValueError(
+                        _(
+                            "Cannot add bills in multiple currencies to a project without default "
+                            "currency"
+                        )
+                    )
+                # Strip currency from bills (since it's the same for every bill)
+                for b in bills:
+                    b["currency"] = CurrencyConverter.no_currency
 
-    # List all members not in the project and weight associated
-    # List of tuples (name,weight)
-    members_to_add = list()
-    for i in members_json:
-        if str(i[0]) not in members_already_here:
-            members_to_add.append(i)
+            g.project.import_bills(bills)
 
-    # List bills not in the project
-    # Same format than JSON element
-    project_bills = project.get_pretty_bills()
-    bill_to_add = list()
-    for j in json_file:
-        same = False
-        for p in project_bills:
-            if same_bill(p, j):
-                same = True
-                break
-        if not same:
-            bill_to_add.append(j)
-
-    # Add users to DB
-    for m in members_to_add:
-        Person(name=m[0], project=project, weight=m[1])
-    db.session.commit()
-
-    id_dict = {}
-    for i in project.members:
-        id_dict[i.name] = i.id
-
-    # Create bills
-    for b in bill_to_add:
-        owers_id = list()
-        for ower in b["owers"]:
-            owers_id.append(id_dict[ower])
-
-        bill = Bill()
-        form = get_billform_for(project)
-        form.what = b["what"]
-        form.amount = b["amount"]
-        form.date = parse(b["date"])
-        form.payer = id_dict[b["payer_name"]]
-        form.payed_for = owers_id
-        form.original_currency = b.get("original_currency")
-
-        db.session.add(form.fake_form(bill, project))
-
-    # Add bills to DB
-    db.session.commit()
+            flash(_("Project successfully uploaded"))
+            return redirect(url_for("main.list_bills"))
+        except ValueError as b:
+            flash(b.args[0], category="danger")
+    else:
+        for component, errors in form.errors.items():
+            flash(_(component + ": ") + ", ".join(errors), category="danger")
+    return redirect(request.headers.get("Referer") or url_for(".edit_project"))
 
 
-@main.route("/<project_id>/delete")
+@main.route("/<project_id>/delete", methods=["POST"])
 def delete_project():
-    g.project.remove_project()
-    flash(_("Project successfully deleted"))
-
+    form = DestructiveActionProjectForm(id=g.project.id)
+    if form.validate():
+        g.project.remove_project()
+        flash(_("Project successfully deleted"))
+        return redirect(url_for(".home"))
+    else:
+        flash(
+            format_form_errors(form, _("Error deleting project")),
+            category="danger",
+        )
     return redirect(request.headers.get("Referer") or url_for(".home"))
 
 
@@ -608,21 +603,25 @@ def invite():
 @main.route("/<project_id>/")
 def list_bills():
     bill_form = get_billform_for(g.project)
+    # Used for CSRF validation
+    csrf_form = EmptyForm()
     # set the last selected payer as default choice if exists
     if "last_selected_payer" in session:
         bill_form.payer.data = session["last_selected_payer"]
-    # Preload the "owers" relationship for all bills
-    bills = (
-        g.project.get_bills()
-        .options(orm.subqueryload(Bill.owers))
-        .paginate(per_page=100, error_out=True)
+
+    # Each item will be a (weight_sum, Bill) tuple.
+    # TODO: improve this awkward result using column_property:
+    # https://docs.sqlalchemy.org/en/14/orm/mapped_sql_expr.html.
+    weighted_bills = g.project.get_bill_weights_ordered().paginate(
+        per_page=100, error_out=True
     )
 
     return render_template(
         "list_bills.html",
-        bills=bills,
+        bills=weighted_bills,
         member_form=MemberForm(g.project),
         bill_form=bill_form,
+        csrf_form=csrf_form,
         add_bill=request.values.get("add_bill", False),
         current_view="list_bills",
     )
@@ -644,6 +643,15 @@ def add_member():
 
 @main.route("/<project_id>/members/<member_id>/reactivate", methods=["POST"])
 def reactivate(member_id):
+    # Used for CSRF validation
+    form = EmptyForm()
+    if not form.validate():
+        flash(
+            format_form_errors(form, _("Error activating participant")),
+            category="danger",
+        )
+        return redirect(url_for(".list_bills"))
+
     person = (
         Person.query.filter(Person.id == member_id)
         .filter(Project.id == g.project.id)
@@ -658,19 +666,26 @@ def reactivate(member_id):
 
 @main.route("/<project_id>/members/<member_id>/delete", methods=["POST"])
 def remove_member(member_id):
+    # Used for CSRF validation
+    form = EmptyForm()
+    if not form.validate():
+        flash(
+            format_form_errors(form, _("Error removing participant")), category="danger"
+        )
+        return redirect(url_for(".list_bills"))
+
     member = g.project.remove_member(member_id)
     if member:
         if not member.activated:
             flash(
                 _(
-                    "User '%(name)s' has been deactivated. It will still "
-                    "appear in the users list until its balance "
-                    "becomes zero.",
+                    "Participant '%(name)s' has been deactivated. It will still "
+                    "appear in the list until its balance reach zero.",
                     name=member.name,
                 )
             )
         else:
-            flash(_("User '%(name)s' has been removed", name=member.name))
+            flash(_("Participant '%(name)s' has been removed", name=member.name))
     return redirect(url_for(".list_bills"))
 
 
@@ -684,7 +699,7 @@ def edit_member(member_id):
     if request.method == "POST" and form.validate():
         form.save(g.project, member)
         db.session.commit()
-        flash(_("User '%(name)s' has been edited", name=member.name))
+        flash(_("Participant '%(name)s' has been modified", name=member.name))
         return redirect(url_for(".list_bills"))
 
     form.fill(member)
@@ -700,8 +715,7 @@ def add_bill():
             session["last_selected_payer"] = form.payer.data
             session.update()
 
-            bill = Bill()
-            db.session.add(form.save(bill, g.project))
+            db.session.add(form.export(g.project))
             db.session.commit()
 
             flash(_("The bill has been added"))
@@ -715,9 +729,14 @@ def add_bill():
     return render_template("add_bill.html", form=form)
 
 
-@main.route("/<project_id>/delete/<int:bill_id>")
+@main.route("/<project_id>/delete/<int:bill_id>", methods=["POST"])
 def delete_bill(bill_id):
-    # fixme: everyone is able to delete a bill
+    # Used for CSRF validation
+    form = EmptyForm()
+    if not form.validate():
+        flash(format_form_errors(form, _("Error deleting bill")), category="danger")
+        return redirect(url_for(".list_bills"))
+
     bill = Bill.query.get(g.project, bill_id)
     if not bill:
         return redirect(url_for(".list_bills"))
@@ -753,8 +772,11 @@ def edit_bill(bill_id):
 
 @main.route("/lang/<lang>")
 def change_lang(lang):
-    session["lang"] = lang
-    session.update()
+    if lang in current_app.config["SUPPORTED_LANGUAGES"]:
+        session["lang"] = lang
+        session.update()
+    else:
+        flash(_(f"{lang} is not a supported language"), category="warning")
 
     return redirect(request.headers.get("Referer") or url_for(".home"))
 
@@ -773,6 +795,7 @@ def history():
 
     any_ip_addresses = any(event["ip"] for event in history)
 
+    delete_form = DestructiveActionProjectForm()
     return render_template(
         "history.html",
         current_view="history",
@@ -781,39 +804,59 @@ def history():
         LoggingMode=LoggingMode,
         OperationType=Operation,
         current_log_pref=g.project.logging_preference,
+        delete_form=delete_form,
     )
 
 
 @main.route("/<project_id>/erase_history", methods=["POST"])
 def erase_history():
     """Erase all history entries associated with this project."""
+    form = DestructiveActionProjectForm(id=g.project.id)
+    if not form.validate():
+        flash(
+            format_form_errors(form, _("Error deleting project history")),
+            category="danger",
+        )
+        return redirect(url_for(".history"))
+
     for query in get_history_queries(g.project):
         query.delete(synchronize_session="fetch")
 
     db.session.commit()
+    flash(_("Deleted project history."))
     return redirect(url_for(".history"))
 
 
 @main.route("/<project_id>/strip_ip_addresses", methods=["POST"])
 def strip_ip_addresses():
     """Strip ip addresses from history entries associated with this project."""
+    form = DestructiveActionProjectForm(id=g.project.id)
+    if not form.validate():
+        flash(
+            format_form_errors(form, _("Error deleting recorded IP addresses")),
+            category="danger",
+        )
+        return redirect(url_for(".history"))
+
     for query in get_history_queries(g.project):
         for version_object in query.all():
             version_object.transaction.remote_addr = None
 
     db.session.commit()
+    flash(_("Deleted recorded IP addresses in project history."))
     return redirect(url_for(".history"))
 
 
 @main.route("/<project_id>/statistics")
 def statistics():
-    """Compute what each member has paid and spent and display it"""
-    today = datetime.now()
+    """Compute what each participant has paid and spent and display it"""
+    # Determine range of months between which there are bills
+    months = g.project.active_months_range()
     return render_template(
         "statistics.html",
         members_stats=g.project.members_stats,
         monthly_stats=g.project.monthly_stats,
-        months=[today - relativedelta(months=i) for i in range(12)],
+        months=months,
         current_view="statistics",
     )
 

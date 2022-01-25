@@ -1,18 +1,18 @@
+
 msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-07-07 01:01+0200\n"
-"PO-Revision-Date: 2021-07-10 15:34+0000\n"
+"POT-Creation-Date: 2021-11-01 18:01+0100\n"
+"PO-Revision-Date: 2021-10-01 20:35+0000\n"
 "Last-Translator: phlostically <phlostically@mailinator.com>\n"
-"Language-Team: Esperanto <https://hosted.weblate.org/projects/i-hate-money/"
-"i-hate-money/eo/>\n"
 "Language: eo\n"
+"Language-Team: Esperanto <https://hosted.weblate.org/projects/i-hate-"
+"money/i-hate-money/eo/>\n"
+"Plural-Forms: nplurals=2; plural=n != 1\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.8-dev\n"
 "Generated-By: Babel 2.9.0\n"
 
 msgid ""
@@ -28,6 +28,9 @@ msgstr "Nomo de projekto"
 msgid "New private code"
 msgstr "Nova privata kodo"
 
+msgid "Enter a new code if you want to change it"
+msgstr ""
+
 msgid "Email"
 msgstr "Retpoŝta adreso"
 
@@ -39,6 +42,9 @@ msgstr "Registri IP-adresojn en projekta historio"
 
 msgid "Default Currency"
 msgstr "Implicita valuto"
+
+msgid "Setting a default currency enables currency conversion between bills"
+msgstr ""
 
 msgid ""
 "This project cannot be set to 'no currency' because it contains bills in "
@@ -69,6 +75,25 @@ msgid ""
 msgstr ""
 "Projekto kun ĉi tiu identigilo («%(project)s») jam ekzistas. Bonvolu "
 "elekti alian identigilon"
+
+msgid "Which is a real currency: Euro or Petro dollar?"
+msgstr ""
+
+#, fuzzy
+msgid "euro"
+msgstr "Periodo"
+
+msgid "Please, validate the captcha to proceed."
+msgstr ""
+
+msgid "Enter private code to confirm deletion"
+msgstr ""
+
+msgid "Unknown error"
+msgstr "Nekonata eraro"
+
+msgid "Invalid private code."
+msgstr "Nevalida privata kodo."
 
 msgid "Get in"
 msgstr "Eniri"
@@ -143,14 +168,16 @@ msgstr "Pondo"
 msgid "Add"
 msgstr "Aldoni"
 
-msgid "User name incorrect"
-msgstr "Salutnomo ne ĝustas"
+#, fuzzy
+msgid "The participant name is invalid"
+msgstr "Uzanto «%(name)s» estis forigita"
 
-msgid "This project already have this member"
+#, fuzzy
+msgid "This project already have this participant"
 msgstr "Ĉi tiu projekto jam havas ĉi tiun anon"
 
 msgid "People to notify"
-msgstr "Sciigotaj homoj"
+msgstr ""
 
 msgid "Send invites"
 msgstr "Sendi invitojn"
@@ -159,17 +186,32 @@ msgstr "Sendi invitojn"
 msgid "The email %(email)s is not valid"
 msgstr "La retpoŝta adreso %(email)s ne validas"
 
-msgid "Participant"
-msgstr "Partoprenanto"
+#. List with two items only
+msgid "{dual_object_0} and {dual_object_1}"
+msgstr "{dual_object_0} kaj {dual_object_1}"
 
-msgid "Bill"
-msgstr "Fakturo"
+#. Last two items of a list with more than 3 items
+msgid "{previous_object}, and {end_object}"
+msgstr "{previous_object} kaj {end_object}"
 
-msgid "Project"
-msgstr "Projekto"
+#. Two items in a middle of a list with more than 5 objects
+msgid "{previous_object}, {next_object}"
+msgstr "{previous_object}, {next_object}"
+
+#. First two items of a list with more than 3 items
+msgid "{start_object}, {next_object}"
+msgstr "{start_object}, {next_object}"
 
 msgid "No Currency"
 msgstr "Neniu valuto"
+
+#. Form error with only one error
+msgid "{prefix}: {error}"
+msgstr "{prefix}: {error}"
+
+#. Form error with a list of errors
+msgid "{prefix}:<br />{errors}"
+msgstr "{prefix}:<br />{errors}"
 
 msgid "Too many failed login attempts, please retry later."
 msgstr "Tro da malsukcesaj provoj de salutado; bonvolu reprovi poste."
@@ -178,8 +220,8 @@ msgstr "Tro da malsukcesaj provoj de salutado; bonvolu reprovi poste."
 msgid "This admin password is not the right one. Only %(num)d attempts left."
 msgstr "Ĉi tiu administra pasvorto ne estas ĝusta. Restas nur %(num)d provoj."
 
-msgid "You either provided a bad token or no project identifier."
-msgstr "Vi donis aŭ nevalidan ĵetonon aŭ neniun identigilon de projekto."
+msgid "Provided token is invalid"
+msgstr ""
 
 msgid "This private code is not the right one"
 msgstr "Ĉi tiu privata kodo ne ĝustas"
@@ -229,8 +271,16 @@ msgstr "Projekto sukcese alŝutita"
 msgid "Invalid JSON"
 msgstr "Nevalida JSON"
 
+msgid ""
+"Cannot add bills in multiple currencies to a project without default "
+"currency"
+msgstr ""
+
 msgid "Project successfully deleted"
 msgstr "La projekto estis sukcese forigitaj"
+
+msgid "Error deleting project"
+msgstr ""
 
 #, python-format
 msgid "You have been invited to share your expenses for %(project)s"
@@ -251,34 +301,58 @@ msgstr ""
 msgid "%(member)s has been added"
 msgstr "%(member)s estis aldonita"
 
+msgid "Error activating participant"
+msgstr ""
+
 #, python-format
 msgid "%(name)s is part of this project again"
 msgstr "%(name)s reapartenas al ĉi tiu projekto"
 
-#, python-format
+msgid "Error removing participant"
+msgstr ""
+
+#, fuzzy, python-format
 msgid ""
-"User '%(name)s' has been deactivated. It will still appear in the users "
-"list until its balance becomes zero."
+"Participant '%(name)s' has been deactivated. It will still appear in the "
+"list until its balance reach zero."
 msgstr ""
 "Uzanto «%(name)s» malaktiviĝis. Ĝi ankoraŭ aperos en la listo de uzantoj "
 "ĝis ĝia saldo fariĝos nul."
 
-#, python-format
-msgid "User '%(name)s' has been removed"
+#, fuzzy, python-format
+msgid "Participant '%(name)s' has been removed"
 msgstr "Uzanto «%(name)s» estis forigita"
 
-#, python-format
-msgid "User '%(name)s' has been edited"
-msgstr "Uzanto «%(name)s» estis redaktita"
+#, fuzzy, python-format
+msgid "Participant '%(name)s' has been modified"
+msgstr "Uzanto «%(name)s» estis forigita"
 
 msgid "The bill has been added"
 msgstr "La fakturo estis aldonita"
+
+msgid "Error deleting bill"
+msgstr ""
 
 msgid "The bill has been deleted"
 msgstr "La fakturo estis forigita"
 
 msgid "The bill has been modified"
 msgstr "La fakturo estis modifita"
+
+#, fuzzy
+msgid "Error deleting project history"
+msgstr "Ŝalti projektan historion"
+
+#, fuzzy
+msgid "Deleted project history."
+msgstr "Ŝalti projektan historion"
+
+#, fuzzy
+msgid "Error deleting recorded IP addresses"
+msgstr "Forviŝi konservitajn IP-adresojn"
+
+msgid "Deleted recorded IP addresses in project history."
+msgstr ""
 
 msgid "Sorry, we were unable to find the page you've asked for."
 msgstr "Pardonu, ni ne povis trovi tiun paĝon, kiun vi petis."
@@ -292,6 +366,10 @@ msgstr "Reen al la listo"
 msgid "Administration tasks are currently disabled."
 msgstr "Administraj taskoj estas nuntempe malebligitaj."
 
+#, fuzzy
+msgid "Authentication"
+msgstr "Dokumentaro"
+
 msgid "The project you are trying to access do not exist, do you want to"
 msgstr "Ne ekzistas la projekto, al kiu vi provas aliri. Ĉu vi volas"
 
@@ -304,8 +382,12 @@ msgstr "?"
 msgid "Create a new project"
 msgstr "Krei novan projekton"
 
-msgid "Number of members"
-msgstr "Nombro de anoj"
+msgid "Project"
+msgstr "Projekto"
+
+#, fuzzy
+msgid "Number of participants"
+msgstr "aldoni partoprenantojn"
 
 msgid "Number of bills"
 msgstr "Nombro de fakturoj"
@@ -337,11 +419,14 @@ msgstr "Elŝuti programon por poŝaparato"
 msgid "Get it on"
 msgstr "Elŝuti ĝin ĉe"
 
-msgid "you sure?"
-msgstr "ĉu vi certas?"
+msgid "Are you sure?"
+msgstr "Ĉu vi certas?"
 
 msgid "Edit project"
 msgstr "Redakti projekton"
+
+msgid "Delete project"
+msgstr "Forviŝi projekton"
 
 msgid "Import JSON"
 msgstr "Enporti JSON-dosieron"
@@ -376,23 +461,30 @@ msgstr "Agordoj pri privateco"
 msgid "Edit the project"
 msgstr "Redakti la projekton"
 
+msgid "This will remove all bills and participants in this project!"
+msgstr ""
+
 msgid "Edit this bill"
 msgstr "Redakti ĉi tiun fakturon"
 
 msgid "Add a bill"
 msgstr "Aldoni fakturon"
 
-msgid "Select all"
-msgstr "Elekti ĉion"
+msgid "Everyone"
+msgstr "Ĉiuj"
 
-msgid "Select none"
-msgstr "Elekti nenion"
+msgid "No one"
+msgstr "Neniu"
+
+msgid "More options"
+msgstr ""
 
 msgid "Add participant"
 msgstr "Aldono partoprenanton"
 
-msgid "Edit this member"
-msgstr "Redakti ĉi tiun anon"
+#, fuzzy
+msgid "Edit this participant"
+msgstr "Aldono partoprenanton"
 
 msgid "john.doe@example.com, mary.moe@site.com"
 msgstr "johano.zamenhof@example.com, maria.baghy@example.net"
@@ -424,14 +516,13 @@ msgstr "Registrado de IP-adresoj estas ŝaltita"
 msgid "History Settings Changed"
 msgstr "Agordoj pri historio estis ŝanĝitaj"
 
-msgid "changed"
-msgstr "ŝanĝis"
+#, python-format
+msgid "Bill %(name)s: %(property_name)s changed from %(before)s to %(after)s"
+msgstr ""
 
-msgid "from"
-msgstr "de"
-
-msgid "to"
-msgstr "al"
+#, python-format
+msgid "Bill %(name)s: %(property_name)s changed to %(after)s"
+msgstr ""
 
 msgid "Confirm Remove IP Adresses"
 msgstr "Konfirmi forigon de IP-adresoj"
@@ -447,11 +538,12 @@ msgstr ""
 "                La resto de la projekta historio estos netuŝita. Ĉi tiu "
 "ago ne estas malfarebla."
 
+#, fuzzy
+msgid "Confirm deletion"
+msgstr "Konfirmi forigon"
+
 msgid "Close"
 msgstr "Fermi"
-
-msgid "Confirm Delete"
-msgstr "Konfirmi forigon"
 
 msgid "Delete Confirmation"
 msgstr "Konfirmo de forigo"
@@ -463,17 +555,13 @@ msgstr ""
 "Ĉu vi certe volas forviŝi ĉiom da historio de ĉi tiu projekto? Ĉi tiu ago"
 " estas malfarebla."
 
-msgid "Added"
-msgstr "Aldonita"
+#, python-format
+msgid "Bill %(name)s: added %(owers_list_str)s to owers list"
+msgstr ""
 
-msgid "Removed"
-msgstr "Forigita"
-
-msgid "and"
-msgstr "kaj"
-
-msgid "owers list"
-msgstr "Listo de ŝuldantoj"
+#, python-format
+msgid "Bill %(name)s: removed %(owers_list_str)s from owers list"
+msgstr ""
 
 #, python-format
 msgid ""
@@ -543,32 +631,51 @@ msgstr "Registrado de IP-adresoj estas malŝaltebla per la agorda paĝo"
 msgid "From IP"
 msgstr "Ĉe IP-adreso"
 
-msgid "added"
-msgstr "aldonita"
+#, fuzzy, python-format
+msgid "Project %(name)s added"
+msgstr "Nomo de projekto"
+
+#, fuzzy, python-format
+msgid "Bill %(name)s added"
+msgstr "La fakturo estis aldonita"
+
+#, python-format
+msgid "Participant %(name)s added"
+msgstr ""
 
 msgid "Project private code changed"
 msgstr "La privata kodo de la projekto estis ŝanĝita"
 
-msgid "Project renamed to"
-msgstr "Nomo de projekto ŝanĝita al"
+#, fuzzy, python-format
+msgid "Project renamed to %(new_project_name)s"
+msgstr "La identigilo de la projekto estas %(new_project_name)s"
 
-msgid "Project contact email changed to"
+#, fuzzy, python-format
+msgid "Project contact email changed to %(new_email)s"
 msgstr "Kontakta retpoŝta adreso de la projekto estis ŝanĝita al"
 
 msgid "Project settings modified"
 msgstr "Agordoj de projekto estis ŝanĝitaj"
 
-msgid "deactivated"
-msgstr "malaktivigita"
+#, python-format
+msgid "Participant %(name)s deactivated"
+msgstr ""
 
-msgid "reactivated"
-msgstr "reaktivigita"
+#, python-format
+msgid "Participant %(name)s reactivated"
+msgstr ""
 
-msgid "renamed to"
-msgstr "nomo ŝanĝita al"
+#, python-format
+msgid "Participant %(name)s renamed to %(new_name)s"
+msgstr ""
 
-msgid "External link changed to"
-msgstr "Ekstera ligo ŝanĝita al"
+#, python-format
+msgid "Bill %(name)s renamed to %(new_description)s"
+msgstr ""
+
+#, python-format
+msgid "Participant %(name)s: weight changed from %(old_weight)s to %(new_weight)s"
+msgstr ""
 
 msgid "Amount"
 msgstr "Kvanto"
@@ -577,13 +684,32 @@ msgstr "Kvanto"
 msgid "Amount in %(currency)s"
 msgstr "Kvanto en %(currency)s"
 
-msgid "modified"
-msgstr "modifis"
+#, fuzzy, python-format
+msgid "Bill %(name)s modified"
+msgstr "La fakturo estis modifita"
 
-msgid "removed"
-msgstr "forigis"
+#, python-format
+msgid "Participant %(name)s modified"
+msgstr ""
 
-msgid "changed in a unknown way"
+#, fuzzy, python-format
+msgid "Bill %(name)s removed"
+msgstr "Uzanto «%(name)s» estis forigita"
+
+#, fuzzy, python-format
+msgid "Participant %(name)s removed"
+msgstr "Uzanto «%(name)s» estis forigita"
+
+#, fuzzy, python-format
+msgid "Project %(name)s changed in an unknown way"
+msgstr "ŝanĝita laŭ nekonata maniero"
+
+#, fuzzy, python-format
+msgid "Bill %(name)s changed in an unknown way"
+msgstr "ŝanĝita laŭ nekonata maniero"
+
+#, fuzzy, python-format
+msgid "Participant %(name)s changed in an unknown way"
 msgstr "ŝanĝita laŭ nekonata maniero"
 
 msgid "Nothing to list"
@@ -680,7 +806,11 @@ msgstr "Dokumentaro"
 msgid "Administation Dashboard"
 msgstr "Administra panelo"
 
-msgid "\"I hate money\" is a free software"
+#, fuzzy
+msgid "Legal information"
+msgstr "Konfirmo de forigo"
+
+msgid "\"I hate money\" is free software"
 msgstr "«I hate money» estas libera programo"
 
 msgid "you can contribute and improve it!"
@@ -689,6 +819,9 @@ msgstr "vi rajtas kontribui al ĝi kaj plibonigi ĝin!"
 #, python-format
 msgid "%(amount)s each"
 msgstr "po %(amount)s"
+
+msgid "you sure?"
+msgstr "ĉu vi certas?"
 
 msgid "Invite people"
 msgstr "Inviti homojn"
@@ -720,9 +853,6 @@ msgstr "Kiom?"
 #, python-format
 msgid "Added on %(date)s"
 msgstr "Aldonita en %(date)s"
-
-msgid "Everyone"
-msgstr "Ĉiuj"
 
 #, python-format
 msgid "Everyone but %(excluded)s"
@@ -825,3 +955,69 @@ msgstr "Elspezoj laŭ monatoj"
 
 msgid "Period"
 msgstr "Periodo"
+
+#~ msgid "Participant"
+#~ msgstr "Partoprenanto"
+
+#~ msgid "Bill"
+#~ msgstr "Fakturo"
+
+#~ msgid "Select all"
+#~ msgstr "Elekti ĉion"
+
+#~ msgid "Select none"
+#~ msgstr "Elekti nenion"
+
+#~ msgid "changed"
+#~ msgstr "ŝanĝis"
+
+#~ msgid "from"
+#~ msgstr "de"
+
+#~ msgid "to"
+#~ msgstr "al"
+
+#~ msgid "Added"
+#~ msgstr "Aldonita"
+
+#~ msgid "Removed"
+#~ msgstr "Forigita"
+
+#~ msgid "and"
+#~ msgstr "kaj"
+
+#~ msgid "owers list"
+#~ msgstr "Listo de ŝuldantoj"
+
+#~ msgid "added"
+#~ msgstr "aldonita"
+
+#~ msgid "Project renamed to"
+#~ msgstr "Nomo de projekto ŝanĝita al"
+
+#~ msgid "deactivated"
+#~ msgstr "malaktivigita"
+
+#~ msgid "reactivated"
+#~ msgstr "reaktivigita"
+
+#~ msgid "renamed to"
+#~ msgstr "nomo ŝanĝita al"
+
+#~ msgid "External link changed to"
+#~ msgstr "Ekstera ligo ŝanĝita al"
+
+#~ msgid "modified"
+#~ msgstr "modifis"
+
+#~ msgid "removed"
+#~ msgstr "forigis"
+
+#~ msgid "You either provided a bad token or no project identifier."
+#~ msgstr "Vi donis aŭ nevalidan ĵetonon aŭ neniun identigilon de projekto."
+
+#~ msgid "User name incorrect"
+#~ msgstr "Salutnomo ne ĝustas"
+
+#~ msgid "People to notify"
+#~ msgstr "Sciigotaj homoj"

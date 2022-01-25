@@ -1,14 +1,17 @@
 from collections import defaultdict
-from datetime import datetime
+import datetime
+import itertools
 
+from dateutil.parser import parse
+from dateutil.relativedelta import relativedelta
 from debts import settle
 from flask import current_app, g
 from flask_sqlalchemy import BaseQuery, SQLAlchemy
 from itsdangerous import (
     BadSignature,
     SignatureExpired,
-    TimedJSONWebSignatureSerializer,
     URLSafeSerializer,
+    URLSafeTimedSerializer,
 )
 import sqlalchemy
 from sqlalchemy import orm
@@ -19,6 +22,7 @@ from werkzeug.security import generate_password_hash
 
 from ihatemoney.currency_convertor import CurrencyConverter
 from ihatemoney.patch_sqlalchemy_continuum import PatchedBuilder
+from ihatemoney.utils import get_members, same_bill
 from ihatemoney.versioning import (
     ConditionalVersioningManager,
     LoggingMode,
@@ -99,52 +103,52 @@ class Project(db.Model):
         return [m for m in self.members if m.activated]
 
     @property
-    def balance(self):
+    def full_balance(self):
+        """Returns a triple of dicts:
 
+        - dict mapping each member to its balance
+
+        - dict mapping each member to how much he/she should pay others
+          (i.e. how much he/she benefited from bills)
+
+        - dict mapping each member to how much he/she should be paid by
+          others (i.e. how much he/she has paid for bills)
+
+        """
         balances, should_pay, should_receive = (defaultdict(int) for time in (1, 2, 3))
 
-        # for each person
-        for person in self.members:
-            # get the list of bills he has to pay
-            bills = Bill.query.options(orm.subqueryload(Bill.owers)).filter(
-                Bill.owers.contains(person)
-            )
-            for bill in bills.all():
-                if person != bill.payer:
-                    share = bill.pay_each() * person.weight
-                    should_pay[person] += share
-                    should_receive[bill.payer] += share
+        for bill in self.get_bills_unordered().all():
+            should_receive[bill.payer.id] += bill.converted_amount
+            total_weight = sum(ower.weight for ower in bill.owers)
+            for ower in bill.owers:
+                should_pay[ower.id] += (
+                    ower.weight * bill.converted_amount / total_weight
+                )
 
         for person in self.members:
-            balance = should_receive[person] - should_pay[person]
+            balance = should_receive[person.id] - should_pay[person.id]
             balances[person.id] = balance
 
-        return balances
+        return balances, should_pay, should_receive
+
+    @property
+    def balance(self):
+        return self.full_balance[0]
 
     @property
     def members_stats(self):
-        """Compute what each member has paid
+        """Compute what each participant has paid
 
-        :return: one stat dict per member
+        :return: one stat dict per participant
         :rtype list:
         """
+        balance, spent, paid = self.full_balance
         return [
             {
                 "member": member,
-                "paid": sum(
-                    [
-                        bill.converted_amount
-                        for bill in self.get_member_bills(member.id).all()
-                    ]
-                ),
-                "spent": sum(
-                    [
-                        bill.pay_each() * member.weight
-                        for bill in self.get_bills_unordered().all()
-                        if member in bill.owers
-                    ]
-                ),
-                "balance": self.balance[member.id],
+                "paid": paid[member.id],
+                "spent": spent[member.id],
+                "balance": balance[member.id],
             }
             for member in self.active_members
         ]
@@ -179,6 +183,7 @@ class Project(db.Model):
                         "ower": transaction["ower"].name,
                         "receiver": transaction["receiver"].name,
                         "amount": round(transaction["amount"], 2),
+                        "currency": transaction["currency"],
                     }
                 )
             return pretty_transactions
@@ -192,6 +197,7 @@ class Project(db.Model):
                 "ower": members[ower_id],
                 "receiver": members[receiver_id],
                 "amount": amount,
+                "currency": self.default_currency,
             }
             for ower_id, amount, receiver_id in settle_plan
         ]
@@ -230,8 +236,13 @@ class Project(db.Model):
 
     def get_bills_unordered(self):
         """Base query for bill list"""
+        # The subqueryload option allows to pre-load data from the
+        # billowers table, which makes access to this data much faster.
+        # Without this option, any access to bill.owers would trigger a
+        # new SQL query, ruining overall performance.
         return (
-            Bill.query.join(Person, Project)
+            Bill.query.options(orm.subqueryload(Bill.owers))
+            .join(Person, Project)
             .filter(Bill.payer_id == Person.id)
             .filter(Person.project_id == Project.id)
             .filter(Project.id == self.id)
@@ -239,12 +250,36 @@ class Project(db.Model):
 
     def get_bills(self):
         """Return the list of bills related to this project"""
+        return self.order_bills(self.get_bills_unordered())
+
+    @staticmethod
+    def order_bills(query):
         return (
-            self.get_bills_unordered()
-            .order_by(Bill.date.desc())
+            query.order_by(Bill.date.desc())
             .order_by(Bill.creation_date.desc())
             .order_by(Bill.id.desc())
         )
+
+    def get_bill_weights(self):
+        """
+        Return all bills for this project, along with the sum of weight for each bill.
+        Each line is a (float, Bill) tuple.
+
+        Result is unordered.
+        """
+        return (
+            db.session.query(func.sum(Person.weight), Bill)
+            .options(orm.subqueryload(Bill.owers))
+            .select_from(Person)
+            .join(billowers, Bill, Project)
+            .filter(Person.project_id == Project.id)
+            .filter(Project.id == self.id)
+            .group_by(Bill.id)
+        )
+
+    def get_bill_weights_ordered(self):
+        """Ordered version of get_bill_weights"""
+        return self.order_bills(self.get_bill_weights())
 
     def get_member_bills(self, member_id):
         """Return the list of bills related to a specific member"""
@@ -254,6 +289,41 @@ class Project(db.Model):
             .order_by(Bill.date.desc())
             .order_by(Bill.id.desc())
         )
+
+    def get_newest_bill(self):
+        """Returns the most recent bill (according to bill date) or None if there are no bills"""
+        # Note that the ORM performs an optimized query with LIMIT
+        return self.get_bills_unordered().order_by(Bill.date.desc()).first()
+
+    def get_oldest_bill(self):
+        """Returns the least recent bill (according to bill date) or None if there are no bills"""
+        # Note that the ORM performs an optimized query with LIMIT
+        return self.get_bills_unordered().order_by(Bill.date.asc()).first()
+
+    def active_months_range(self):
+        """Returns a list of dates, representing the range of consecutive months
+        for which the project was active (i.e. has bills).
+
+        Note that the list might contain months during which there was no
+        bills.  We only guarantee that there were bills during the first
+        and last month in the list.
+        """
+        oldest_bill = self.get_oldest_bill()
+        newest_bill = self.get_newest_bill()
+        if oldest_bill is None or newest_bill is None:
+            return []
+        oldest_date = oldest_bill.date
+        newest_date = newest_bill.date
+        newest_month = datetime.date(
+            year=newest_date.year, month=newest_date.month, day=1
+        )
+        # Infinite iterator towards the past
+        all_months = (newest_month - relativedelta(months=i) for i in itertools.count())
+        # Stop when reaching one month before the first date
+        months = itertools.takewhile(
+            lambda x: x > oldest_date - relativedelta(months=1), all_months
+        )
+        return list(months)
 
     def get_pretty_bills(self, export_format="json"):
         """Return a list of project's bills with pretty formatting"""
@@ -269,6 +339,7 @@ class Project(db.Model):
                 {
                     "what": bill.what,
                     "amount": round(bill.amount, 2),
+                    "currency": bill.original_currency,
                     "date": str(bill.date),
                     "payer_name": Person.query.get(bill.payer_id).name,
                     "payer_weight": Person.query.get(bill.payer_id).weight,
@@ -312,6 +383,44 @@ class Project(db.Model):
         db.session.add(self)
         db.session.commit()
 
+    def import_bills(self, bills: list):
+        """Import bills from a list of dictionaries"""
+        # Add members not already in the project
+        project_members = [str(m) for m in self.members]
+        new_members = [
+            m for m in get_members(bills) if str(m[0]) not in project_members
+        ]
+        for m in new_members:
+            Person(name=m[0], project=self, weight=m[1])
+        db.session.commit()
+
+        # Import bills not already in the project
+        project_bills = self.get_pretty_bills()
+        id_dict = {m.name: m.id for m in self.members}
+        for b in bills:
+            same = False
+            for p_b in project_bills:
+                if same_bill(p_b, b):
+                    same = True
+                    break
+            if not same:
+                # Create bills
+                try:
+                    new_bill = Bill(
+                        amount=b["amount"],
+                        date=parse(b["date"]),
+                        external_link="",
+                        original_currency=b["currency"],
+                        owers=Person.query.get_by_names(b["owers"], self),
+                        payer_id=id_dict[b["payer_name"]],
+                        project_default_currency=self.default_currency,
+                        what=b["what"],
+                    )
+                except Exception as e:
+                    raise ValueError(f"Unable to import csv data: {repr(e)}")
+                db.session.add(new_bill)
+        db.session.commit()
+
     def remove_member(self, member_id):
         """Remove a member from the project.
 
@@ -336,41 +445,61 @@ class Project(db.Model):
         db.session.delete(self)
         db.session.commit()
 
-    def generate_token(self, expiration=0):
+    def generate_token(self, token_type="auth"):
         """Generate a timed and serialized JsonWebToken
 
-        :param expiration: Token expiration time (in seconds)
+        :param token_type: Either "auth" for authentication (invalidated when project code changed),
+                        or "reset" for password reset (invalidated after expiration)
         """
-        if expiration:
-            serializer = TimedJSONWebSignatureSerializer(
-                current_app.config["SECRET_KEY"], expiration
+
+        if token_type == "reset":
+            serializer = URLSafeTimedSerializer(
+                current_app.config["SECRET_KEY"], salt=token_type
             )
-            token = serializer.dumps({"project_id": self.id}).decode("utf-8")
+            token = serializer.dumps([self.id])
         else:
-            serializer = URLSafeSerializer(current_app.config["SECRET_KEY"])
-            token = serializer.dumps({"project_id": self.id})
+            serializer = URLSafeSerializer(
+                current_app.config["SECRET_KEY"] + self.password, salt=token_type
+            )
+            token = serializer.dumps([self.id])
+
         return token
 
     @staticmethod
-    def verify_token(token, token_type="timed_token"):
+    def verify_token(token, token_type="auth", project_id=None, max_age=3600):
         """Return the project id associated to the provided token,
         None if the provided token is expired or not valid.
 
         :param token: Serialized TimedJsonWebToken
+        :param token_type: Either "auth" for authentication (invalidated when project code changed),
+                        or "reset" for password reset (invalidated after expiration)
+        :param project_id: Project ID. Used for token_type "auth" to use the password as serializer
+                        secret key.
+        :param max_age: Token expiration time (in seconds). Only used with token_type "reset"
         """
-        if token_type == "timed_token":
-            serializer = TimedJSONWebSignatureSerializer(
-                current_app.config["SECRET_KEY"]
+        loads_kwargs = {}
+        if token_type == "reset":
+            serializer = URLSafeTimedSerializer(
+                current_app.config["SECRET_KEY"], salt=token_type
             )
+            loads_kwargs["max_age"] = max_age
         else:
-            serializer = URLSafeSerializer(current_app.config["SECRET_KEY"])
+            project = Project.query.get(project_id) if project_id is not None else None
+            password = project.password if project is not None else ""
+            serializer = URLSafeSerializer(
+                current_app.config["SECRET_KEY"] + password, salt=token_type
+            )
         try:
-            data = serializer.loads(token)
+            data = serializer.loads(token, **loads_kwargs)
         except SignatureExpired:
             return None
         except BadSignature:
             return None
-        return data["project_id"]
+
+        data_project = data[0] if isinstance(data, list) else None
+        return (
+            data_project if project_id is None or data_project == project_id else None
+        )
 
     def __str__(self):
         return self.name
@@ -385,7 +514,7 @@ class Project(db.Model):
             name="demonstration",
             password=generate_password_hash("demo"),
             contact_email="demo@notmyidea.org",
-            default_currency="EUR",
+            default_currency="XXX",
         )
         db.session.add(project)
         db.session.commit()
@@ -407,16 +536,17 @@ class Project(db.Model):
             ("Alice", 20, ("Amina", "Alice"), "Beer !"),
             ("Amina", 50, ("Amina", "Alice", "Georg"), "AMAP"),
         )
-        for (payer, amount, owers, subject) in operations:
-            bill = Bill()
-            bill.payer_id = members[payer].id
-            bill.what = subject
-            bill.owers = [members[name] for name in owers]
-            bill.amount = amount
-            bill.original_currency = "EUR"
-            bill.converted_amount = amount
-
-            db.session.add(bill)
+        for (payer, amount, owers, what) in operations:
+            db.session.add(
+                Bill(
+                    amount=amount,
+                    original_currency=project.default_currency,
+                    owers=[members[name] for name in owers],
+                    payer_id=members[payer].id,
+                    project_default_currency=project.default_currency,
+                    what=what,
+                )
+            )
 
         db.session.commit()
         return project
@@ -431,6 +561,13 @@ class Person(db.Model):
                 .one_or_none()
             )
 
+        def get_by_names(self, names, project):
+            return (
+                Person.query.filter(Person.name.in_(names))
+                .filter(Person.project_id == project.id)
+                .all()
+            )
+
         def get(self, id, project=None):
             if not project:
                 project = g.project
@@ -438,6 +575,15 @@ class Person(db.Model):
                 Person.query.filter(Person.id == id)
                 .filter(Person.project_id == project.id)
                 .one_or_none()
+            )
+
+        def get_by_ids(self, ids, project=None):
+            if not project:
+                project = g.project
+            return (
+                Person.query.filter(Person.id.in_(ids))
+                .filter(Person.project_id == project.id)
+                .all()
             )
 
     query_class = PersonQuery
@@ -465,7 +611,7 @@ class Person(db.Model):
         }
 
     def has_bills(self):
-        """return if the user do have bills or not"""
+        """return if the participant do have bills or not"""
         bills_as_ower_number = (
             db.session.query(billowers)
             .filter(billowers.columns.get("person_id") == self.id)
@@ -523,8 +669,8 @@ class Bill(db.Model):
     owers = db.relationship(Person, secondary=billowers)
 
     amount = db.Column(db.Float)
-    date = db.Column(db.Date, default=datetime.now)
-    creation_date = db.Column(db.Date, default=datetime.now)
+    date = db.Column(db.Date, default=datetime.datetime.now)
+    creation_date = db.Column(db.Date, default=datetime.datetime.now)
     what = db.Column(db.UnicodeText)
     external_link = db.Column(db.UnicodeText)
 
@@ -532,6 +678,31 @@ class Bill(db.Model):
     converted_amount = db.Column(db.Float)
 
     archive = db.Column(db.Integer, db.ForeignKey("archive.id"))
+
+    currency_helper = CurrencyConverter()
+
+    def __init__(
+        self,
+        amount: float,
+        date: datetime.datetime = None,
+        external_link: str = "",
+        original_currency: str = "",
+        owers: list = [],
+        payer_id: int = None,
+        project_default_currency: str = "",
+        what: str = "",
+    ):
+        super().__init__()
+        self.amount = amount
+        self.date = date
+        self.external_link = external_link
+        self.original_currency = original_currency
+        self.owers = owers
+        self.payer_id = payer_id
+        self.what = what
+        self.converted_amount = self.currency_helper.exchange_currency(
+            self.amount, self.original_currency, project_default_currency
+        )
 
     @property
     def _to_serialize(self):
@@ -549,7 +720,10 @@ class Bill(db.Model):
         }
 
     def pay_each_default(self, amount):
-        """Compute what each share has to pay"""
+        """Compute what each share has to pay. Warning: this is slow, if you need
+        to compute this for many bills, do it differently (see
+        balance_full function)
+        """
         if self.owers:
             weights = (
                 db.session.query(func.sum(Person.weight))
@@ -564,6 +738,9 @@ class Bill(db.Model):
         return self.what
 
     def pay_each(self):
+        """Warning: this is slow, if you need to compute this for many bills, do
+        it differently (see balance_full function)
+        """
         return self.pay_each_default(self.converted_amount)
 
     def __repr__(self):

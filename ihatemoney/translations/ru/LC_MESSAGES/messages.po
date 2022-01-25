@@ -3,9 +3,9 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-07-07 01:01+0200\n"
-"PO-Revision-Date: 2021-05-10 11:33+0000\n"
-"Last-Translator: Vsevolod <sevauserg.com@gmail.com>\n"
+"POT-Creation-Date: 2021-11-01 18:01+0100\n"
+"PO-Revision-Date: 2021-09-20 12:38+0000\n"
+"Last-Translator: Роман Прокопов <pochta.romana.iz.vyborga@gmail.com>\n"
 "Language: ru\n"
 "Language-Team: Russian <https://hosted.weblate.org/projects/i-hate-"
 "money/i-hate-money/ru/>\n"
@@ -26,9 +26,11 @@ msgstr ""
 msgid "Project name"
 msgstr "Имя проекта"
 
-#, fuzzy
 msgid "New private code"
-msgstr "Приватный код"
+msgstr "Новый приватный код"
+
+msgid "Enter a new code if you want to change it"
+msgstr ""
 
 msgid "Email"
 msgstr "Email"
@@ -41,6 +43,9 @@ msgstr "Использовать отслеживание по IP для ист�
 
 msgid "Default Currency"
 msgstr "Валюта по умолчанию"
+
+msgid "Setting a default currency enables currency conversion between bills"
+msgstr ""
 
 msgid ""
 "This project cannot be set to 'no currency' because it contains bills in "
@@ -69,6 +74,27 @@ msgid ""
 msgstr ""
 "Проект с идентификатором (\"%(project)s\") уже существует. Пожалуйста, "
 "выберете новый идентификатор"
+
+msgid "Which is a real currency: Euro or Petro dollar?"
+msgstr ""
+
+#, fuzzy
+msgid "euro"
+msgstr "Период"
+
+msgid "Please, validate the captcha to proceed."
+msgstr ""
+
+msgid "Enter private code to confirm deletion"
+msgstr ""
+
+#, fuzzy
+msgid "Unknown error"
+msgstr "Неизвестный проект"
+
+#, fuzzy
+msgid "Invalid private code."
+msgstr "Приватный код"
 
 msgid "Get in"
 msgstr "Войти"
@@ -143,14 +169,16 @@ msgstr "Вес"
 msgid "Add"
 msgstr "Добавить"
 
-msgid "User name incorrect"
-msgstr "Неправильное имя пользователя"
+#, fuzzy
+msgid "The participant name is invalid"
+msgstr "Пользователь '%(name)s' был удалён"
 
-msgid "This project already have this member"
+#, fuzzy
+msgid "This project already have this participant"
 msgstr "В этом проекте уже есть такой участник"
 
 msgid "People to notify"
-msgstr "Люди для уведомления"
+msgstr ""
 
 msgid "Send invites"
 msgstr "Отправить приглашения"
@@ -159,17 +187,32 @@ msgstr "Отправить приглашения"
 msgid "The email %(email)s is not valid"
 msgstr "Email %(email)s не правильный"
 
-msgid "Participant"
-msgstr "Участник"
+#. List with two items only
+msgid "{dual_object_0} and {dual_object_1}"
+msgstr ""
 
-msgid "Bill"
-msgstr "Счёт"
+#. Last two items of a list with more than 3 items
+msgid "{previous_object}, and {end_object}"
+msgstr ""
 
-msgid "Project"
-msgstr "Проект"
+#. Two items in a middle of a list with more than 5 objects
+msgid "{previous_object}, {next_object}"
+msgstr ""
+
+#. First two items of a list with more than 3 items
+msgid "{start_object}, {next_object}"
+msgstr ""
 
 msgid "No Currency"
 msgstr "Нет валюты"
+
+#. Form error with only one error
+msgid "{prefix}: {error}"
+msgstr ""
+
+#. Form error with a list of errors
+msgid "{prefix}:<br />{errors}"
+msgstr ""
 
 msgid "Too many failed login attempts, please retry later."
 msgstr "Слишком много неудачных попыток входа, попробуйте позже."
@@ -178,10 +221,8 @@ msgstr "Слишком много неудачных попыток входа, 
 msgid "This admin password is not the right one. Only %(num)d attempts left."
 msgstr "Этот пароль администратора неправильный. Осталось только %(num)d попыток."
 
-msgid "You either provided a bad token or no project identifier."
+msgid "Provided token is invalid"
 msgstr ""
-"Вы либо предоставили неверный токен, либо не указали идентификатор "
-"проекта."
 
 msgid "This private code is not the right one"
 msgstr "Этот приватный код не подходит"
@@ -232,8 +273,16 @@ msgstr "Проект успешно загружен"
 msgid "Invalid JSON"
 msgstr "Неправильный JSON"
 
+msgid ""
+"Cannot add bills in multiple currencies to a project without default "
+"currency"
+msgstr ""
+
 msgid "Project successfully deleted"
 msgstr "Проект удалён"
+
+msgid "Error deleting project"
+msgstr ""
 
 #, python-format
 msgid "You have been invited to share your expenses for %(project)s"
@@ -255,34 +304,58 @@ msgstr ""
 msgid "%(member)s has been added"
 msgstr "%(member)s был добавлен"
 
+msgid "Error activating participant"
+msgstr ""
+
 #, python-format
 msgid "%(name)s is part of this project again"
 msgstr "%(name)s снова часть этого проекта"
 
-#, python-format
+msgid "Error removing participant"
+msgstr ""
+
+#, fuzzy, python-format
 msgid ""
-"User '%(name)s' has been deactivated. It will still appear in the users "
-"list until its balance becomes zero."
+"Participant '%(name)s' has been deactivated. It will still appear in the "
+"list until its balance reach zero."
 msgstr ""
 "Пользователь '%(name)s' был деактивирован. Он будет отображаться в списке"
 " пользователей до тех пор, пока его баланс не станет равным нулю."
 
-#, python-format
-msgid "User '%(name)s' has been removed"
+#, fuzzy, python-format
+msgid "Participant '%(name)s' has been removed"
 msgstr "Пользователь '%(name)s' был удалён"
 
-#, python-format
-msgid "User '%(name)s' has been edited"
-msgstr "Пользователь '%(name)s' был изменён"
+#, fuzzy, python-format
+msgid "Participant '%(name)s' has been modified"
+msgstr "Пользователь '%(name)s' был удалён"
 
 msgid "The bill has been added"
 msgstr "Счёт был добавлен"
+
+msgid "Error deleting bill"
+msgstr ""
 
 msgid "The bill has been deleted"
 msgstr "Счёт был удалён"
 
 msgid "The bill has been modified"
 msgstr "Счёт был изменён"
+
+#, fuzzy
+msgid "Error deleting project history"
+msgstr "Включить историю проекта"
+
+#, fuzzy
+msgid "Deleted project history."
+msgstr "Включить историю проекта"
+
+#, fuzzy
+msgid "Error deleting recorded IP addresses"
+msgstr "Удалить сохраненные IP-адреса"
+
+msgid "Deleted recorded IP addresses in project history."
+msgstr ""
 
 msgid "Sorry, we were unable to find the page you've asked for."
 msgstr "К сожалению, нам не удалось найти страницу, которую вы запросили."
@@ -296,6 +369,10 @@ msgstr "Вернутся к списку"
 msgid "Administration tasks are currently disabled."
 msgstr "Задачи администратора в данный момент отключены."
 
+#, fuzzy
+msgid "Authentication"
+msgstr "Документация"
+
 msgid "The project you are trying to access do not exist, do you want to"
 msgstr "Проект, к которому вы пытаетесь получить доступ, не существует, вы хотите"
 
@@ -308,8 +385,12 @@ msgstr "?"
 msgid "Create a new project"
 msgstr "Создать новый проект"
 
-msgid "Number of members"
-msgstr "Число участников"
+msgid "Project"
+msgstr "Проект"
+
+#, fuzzy
+msgid "Number of participants"
+msgstr "добавить пользователя"
 
 msgid "Number of bills"
 msgstr "Число счетов"
@@ -343,10 +424,15 @@ msgstr "Мобильное приложение"
 msgid "Get it on"
 msgstr "Войти"
 
-msgid "you sure?"
+#, fuzzy
+msgid "Are you sure?"
 msgstr "вы уверены?"
 
 msgid "Edit project"
+msgstr "Изменить проект"
+
+#, fuzzy
+msgid "Delete project"
 msgstr "Изменить проект"
 
 msgid "Import JSON"
@@ -382,23 +468,30 @@ msgstr "Настройки приватности"
 msgid "Edit the project"
 msgstr "Изменить проект"
 
+msgid "This will remove all bills and participants in this project!"
+msgstr ""
+
 msgid "Edit this bill"
 msgstr "Изменить счёт"
 
 msgid "Add a bill"
 msgstr "Добавить счёт"
 
-msgid "Select all"
-msgstr "Выбрать всё"
+msgid "Everyone"
+msgstr "Каждый"
 
-msgid "Select none"
-msgstr "Отменить выбор"
+msgid "No one"
+msgstr ""
+
+msgid "More options"
+msgstr ""
 
 msgid "Add participant"
 msgstr "Добавить участника"
 
-msgid "Edit this member"
-msgstr "Изменить этого участника"
+#, fuzzy
+msgid "Edit this participant"
+msgstr "Добавить участника"
 
 msgid "john.doe@example.com, mary.moe@site.com"
 msgstr "john.doe@example.com, mary.moe@site.com"
@@ -430,14 +523,13 @@ msgstr "Включить запись IP адрессов"
 msgid "History Settings Changed"
 msgstr "Настройки истории изменены"
 
-msgid "changed"
-msgstr "изменены"
+#, python-format
+msgid "Bill %(name)s: %(property_name)s changed from %(before)s to %(after)s"
+msgstr ""
 
-msgid "from"
-msgstr "от"
-
-msgid "to"
-msgstr "кому"
+#, python-format
+msgid "Bill %(name)s: %(property_name)s changed to %(after)s"
+msgstr ""
 
 msgid "Confirm Remove IP Adresses"
 msgstr "Подтвердите удаление IP-адресов"
@@ -453,11 +545,12 @@ msgstr ""
 "                Остальная часть истории проекта не будет затронута. Это "
 "действие не может быть отменено."
 
+#, fuzzy
+msgid "Confirm deletion"
+msgstr "Подтвердить удаление"
+
 msgid "Close"
 msgstr "Закрыть"
-
-msgid "Confirm Delete"
-msgstr "Подтвердить удаление"
 
 msgid "Delete Confirmation"
 msgstr "Подтверждение удаления"
@@ -469,17 +562,13 @@ msgstr ""
 "Вы уверены, что хотите стереть историю проекта? Это действие нельзя "
 "отменить."
 
-msgid "Added"
-msgstr "Добавлен"
+#, python-format
+msgid "Bill %(name)s: added %(owers_list_str)s to owers list"
+msgstr ""
 
-msgid "Removed"
-msgstr "Удалён"
-
-msgid "and"
-msgstr "и"
-
-msgid "owers list"
-msgstr "список владельцев"
+#, python-format
+msgid "Bill %(name)s: removed %(owers_list_str)s from owers list"
+msgstr ""
 
 #, python-format
 msgid ""
@@ -549,32 +638,51 @@ msgstr "Запись IP-адреса может быть отключена на
 msgid "From IP"
 msgstr "От IP"
 
-msgid "added"
-msgstr "добавлен"
+#, fuzzy, python-format
+msgid "Project %(name)s added"
+msgstr "Имя проекта"
+
+#, fuzzy, python-format
+msgid "Bill %(name)s added"
+msgstr "Счёт был добавлен"
+
+#, python-format
+msgid "Participant %(name)s added"
+msgstr ""
 
 msgid "Project private code changed"
 msgstr "Приватный код проекта изменен"
 
-msgid "Project renamed to"
-msgstr "Проект переименован в"
+#, fuzzy, python-format
+msgid "Project renamed to %(new_project_name)s"
+msgstr "Идентификатор проекта: %(new_project_name)s"
 
-msgid "Project contact email changed to"
+#, fuzzy, python-format
+msgid "Project contact email changed to %(new_email)s"
 msgstr "Контактная почта проекта изменена на"
 
 msgid "Project settings modified"
 msgstr "Настройки проекта изменены"
 
-msgid "deactivated"
-msgstr "отключено"
+#, python-format
+msgid "Participant %(name)s deactivated"
+msgstr ""
 
-msgid "reactivated"
-msgstr "реактивирован"
+#, python-format
+msgid "Participant %(name)s reactivated"
+msgstr ""
 
-msgid "renamed to"
-msgstr "переименован в"
+#, python-format
+msgid "Participant %(name)s renamed to %(new_name)s"
+msgstr ""
 
-msgid "External link changed to"
-msgstr "Внешняя ссылка изменена на"
+#, python-format
+msgid "Bill %(name)s renamed to %(new_description)s"
+msgstr ""
+
+#, python-format
+msgid "Participant %(name)s: weight changed from %(old_weight)s to %(new_weight)s"
+msgstr ""
 
 msgid "Amount"
 msgstr "Количество"
@@ -583,13 +691,32 @@ msgstr "Количество"
 msgid "Amount in %(currency)s"
 msgstr "Количество в %(currency)s"
 
-msgid "modified"
-msgstr "изменено"
+#, fuzzy, python-format
+msgid "Bill %(name)s modified"
+msgstr "Счёт был изменён"
 
-msgid "removed"
-msgstr "удалено"
+#, python-format
+msgid "Participant %(name)s modified"
+msgstr ""
 
-msgid "changed in a unknown way"
+#, fuzzy, python-format
+msgid "Bill %(name)s removed"
+msgstr "Пользователь '%(name)s' был удалён"
+
+#, fuzzy, python-format
+msgid "Participant %(name)s removed"
+msgstr "Пользователь '%(name)s' был удалён"
+
+#, fuzzy, python-format
+msgid "Project %(name)s changed in an unknown way"
+msgstr "изменилось неизвестным образом"
+
+#, fuzzy, python-format
+msgid "Bill %(name)s changed in an unknown way"
+msgstr "изменилось неизвестным образом"
+
+#, fuzzy, python-format
+msgid "Participant %(name)s changed in an unknown way"
 msgstr "изменилось неизвестным образом"
 
 msgid "Nothing to list"
@@ -686,7 +813,11 @@ msgstr "Документация"
 msgid "Administation Dashboard"
 msgstr "Панель инструментов администратора"
 
-msgid "\"I hate money\" is a free software"
+#, fuzzy
+msgid "Legal information"
+msgstr "Подтверждение удаления"
+
+msgid "\"I hate money\" is free software"
 msgstr "\" I hate money \" - бесплатная программа"
 
 msgid "you can contribute and improve it!"
@@ -695,6 +826,9 @@ msgstr "вы можете способствовать развитию и ул�
 #, python-format
 msgid "%(amount)s each"
 msgstr "%(amount)s по каждому"
+
+msgid "you sure?"
+msgstr "вы уверены?"
 
 msgid "Invite people"
 msgstr "Пригласите людей"
@@ -726,9 +860,6 @@ msgstr "Сколько?"
 #, python-format
 msgid "Added on %(date)s"
 msgstr "Добавлено %(date)s"
-
-msgid "Everyone"
-msgstr "Каждый"
 
 #, python-format
 msgid "Everyone but %(excluded)s"
@@ -852,3 +983,70 @@ msgstr "Период"
 #~ " есть, поэтому не используйте личный "
 #~ "пароль!"
 
+#~ msgid "Participant"
+#~ msgstr "Участник"
+
+#~ msgid "Bill"
+#~ msgstr "Счёт"
+
+#~ msgid "Select all"
+#~ msgstr "Выбрать всё"
+
+#~ msgid "Select none"
+#~ msgstr "Отменить выбор"
+
+#~ msgid "changed"
+#~ msgstr "изменены"
+
+#~ msgid "from"
+#~ msgstr "от"
+
+#~ msgid "to"
+#~ msgstr "кому"
+
+#~ msgid "Added"
+#~ msgstr "Добавлен"
+
+#~ msgid "Removed"
+#~ msgstr "Удалён"
+
+#~ msgid "and"
+#~ msgstr "и"
+
+#~ msgid "owers list"
+#~ msgstr "список владельцев"
+
+#~ msgid "added"
+#~ msgstr "добавлен"
+
+#~ msgid "Project renamed to"
+#~ msgstr "Проект переименован в"
+
+#~ msgid "deactivated"
+#~ msgstr "отключено"
+
+#~ msgid "reactivated"
+#~ msgstr "реактивирован"
+
+#~ msgid "renamed to"
+#~ msgstr "переименован в"
+
+#~ msgid "External link changed to"
+#~ msgstr "Внешняя ссылка изменена на"
+
+#~ msgid "modified"
+#~ msgstr "изменено"
+
+#~ msgid "removed"
+#~ msgstr "удалено"
+
+#~ msgid "You either provided a bad token or no project identifier."
+#~ msgstr ""
+#~ "Вы либо предоставили неверный токен, "
+#~ "либо не указали идентификатор проекта."
+
+#~ msgid "User name incorrect"
+#~ msgstr "Неправильное имя пользователя"
+
+#~ msgid "People to notify"
+#~ msgstr "Люди для уведомления"

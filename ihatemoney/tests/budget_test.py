@@ -1,10 +1,9 @@
 from collections import defaultdict
-import io
-import json
+import datetime
 import re
 from time import sleep
 import unittest
-from unittest.mock import MagicMock
+from urllib.parse import urlparse, urlunparse
 
 from flask import session
 import pytest
@@ -12,6 +11,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 from ihatemoney import models
 from ihatemoney.currency_convertor import CurrencyConverter
+from ihatemoney.tests.common.help_functions import extract_link
 from ihatemoney.tests.common.ihatemoney_testcase import IhatemoneyTestCase
 from ihatemoney.versioning import LoggingMode
 
@@ -41,14 +41,14 @@ class BudgetTestCase(IhatemoneyTestCase):
             self.assertEqual(outbox[0].recipients, ["raclette@notmyidea.org"])
             self.assertEqual(outbox[1].recipients, ["zorglub@notmyidea.org"])
 
-        # sending a message to multiple persons
+        # sending a message to multiple participants
         with self.app.mail.record_messages() as outbox:
             self.client.post(
                 "/raclette/invite",
                 data={"emails": "zorglub@notmyidea.org, toto@notmyidea.org"},
             )
 
-            # only one message is sent to multiple persons
+            # only one message is sent to multiple participants
             self.assertEqual(len(outbox), 1)
             self.assertEqual(
                 outbox[0].recipients, ["zorglub@notmyidea.org", "toto@notmyidea.org"]
@@ -66,7 +66,7 @@ class BudgetTestCase(IhatemoneyTestCase):
                 "/raclette/invite", data={"emails": "zorglub@notmyidea.org, zorglub"}
             )  # not valid
 
-            # only one message is sent to multiple persons
+            # only one message is sent to multiple participants
             self.assertEqual(len(outbox), 0)
 
     def test_invite(self):
@@ -88,10 +88,53 @@ class BudgetTestCase(IhatemoneyTestCase):
         )
         # Test empty and invalid tokens
         self.client.get("/exit")
-        resp = self.client.get("/authenticate")
-        self.assertIn("You either provided a bad token", resp.data.decode("utf-8"))
-        resp = self.client.get("/authenticate?token=token")
-        self.assertIn("You either provided a bad token", resp.data.decode("utf-8"))
+        # Use another project_id
+        parsed_url = urlparse(url)
+        resp = self.client.get(
+            urlunparse(
+                parsed_url._replace(
+                    path=parsed_url.path.replace("raclette/", "invalid_project/")
+                )
+            ),
+            follow_redirects=True,
+        )
+        assert "Create a new project" in resp.data.decode("utf-8")
+
+        # A token MUST have a point between payload and signature
+        resp = self.client.get("/raclette/join/token.invalid", follow_redirects=True)
+        self.assertIn("Provided token is invalid", resp.data.decode("utf-8"))
+
+    def test_invite_code_invalidation(self):
+        """Test that invitation link expire after code change"""
+        self.login("raclette")
+        self.post_project("raclette")
+        response = self.client.get("/raclette/invite").data.decode("utf-8")
+        link = extract_link(response, "share the following link")
+
+        self.client.get("/exit")
+        response = self.client.get(link)
+        # Link is valid
+        assert response.status_code == 302
+
+        # Change password to invalidate token
+        # Other data are required, but useless for the test
+        response = self.client.post(
+            "/raclette/edit",
+            data={
+                "name": "raclette",
+                "contact_email": "zorglub@notmyidea.org",
+                "password": "didoudida",
+                "default_currency": "XXX",
+            },
+            follow_redirects=True,
+        )
+        assert response.status_code == 200
+        assert "alert-danger" not in response.data.decode("utf-8")
+
+        self.client.get("/exit")
+        response = self.client.get(link, follow_redirects=True)
+        # Link is invalid
+        self.assertIn("Provided token is invalid", response.data.decode("utf-8"))
 
     def test_password_reminder(self):
         # test that it is possible to have an email containing the password of a
@@ -147,8 +190,7 @@ class BudgetTestCase(IhatemoneyTestCase):
         self.assertIn("Invalid token", resp.data.decode("utf-8"))
 
     def test_project_creation(self):
-        with self.app.test_client() as c:
-
+        with self.client as c:
             with self.app.mail.record_messages() as outbox:
                 # add a valid project
                 resp = c.post(
@@ -162,7 +204,8 @@ class BudgetTestCase(IhatemoneyTestCase):
                     },
                     follow_redirects=True,
                 )
-                # an email is sent to the owner with a reminder of the password
+
+                # An email is sent to the owner with a reminder of the password.
                 self.assertEqual(len(outbox), 1)
                 self.assertEqual(outbox[0].recipients, ["raclette@notmyidea.org"])
                 self.assertIn(
@@ -177,7 +220,7 @@ class BudgetTestCase(IhatemoneyTestCase):
             self.assertEqual(len(models.Project.query.all()), 1)
 
             # Add a second project with the same id
-            models.Project.query.get("raclette")
+            self.get_project("raclette")
 
             c.post(
                 "/create",
@@ -195,7 +238,7 @@ class BudgetTestCase(IhatemoneyTestCase):
 
     def test_project_creation_without_public_permissions(self):
         self.app.config["ALLOW_PUBLIC_PROJECT_CREATION"] = False
-        with self.app.test_client() as c:
+        with self.client as c:
             # add a valid project
             c.post(
                 "/create",
@@ -216,7 +259,7 @@ class BudgetTestCase(IhatemoneyTestCase):
 
     def test_project_creation_with_public_permissions(self):
         self.app.config["ALLOW_PUBLIC_PROJECT_CREATION"] = True
-        with self.app.test_client() as c:
+        with self.client as c:
             # add a valid project
             c.post(
                 "/create",
@@ -237,7 +280,7 @@ class BudgetTestCase(IhatemoneyTestCase):
 
     def test_project_deletion(self):
 
-        with self.app.test_client() as c:
+        with self.client as c:
             c.post(
                 "/create",
                 data={
@@ -252,7 +295,18 @@ class BudgetTestCase(IhatemoneyTestCase):
             # project added
             self.assertEqual(len(models.Project.query.all()), 1)
 
-            c.get("/raclette/delete")
+            # Check that we can't delete project with a GET or with a
+            # password-less POST.
+            resp = self.client.get("/raclette/delete")
+            self.assertEqual(resp.status_code, 405)
+            self.client.post("/raclette/delete")
+            self.assertEqual(len(models.Project.query.all()), 1)
+
+            # Delete for real
+            c.post(
+                "/raclette/delete",
+                data={"password": "party"},
+            )
 
             # project removed
             self.assertEqual(len(models.Project.query.all()), 0)
@@ -263,7 +317,7 @@ class BudgetTestCase(IhatemoneyTestCase):
 
         result = self.client.get("/raclette/")
 
-        # Empty bill list and no members, should now propose to add members first
+        # Empty bill list and no participant, should now propose to add participants first
         self.assertIn(
             'You probably want to <a href="/raclette/members/add"',
             result.data.decode("utf-8"),
@@ -284,17 +338,17 @@ class BudgetTestCase(IhatemoneyTestCase):
 
         # adds a member to this project
         self.client.post("/raclette/members/add", data={"name": "zorglub"})
-        self.assertEqual(len(models.Project.query.get("raclette").members), 1)
+        self.assertEqual(len(self.get_project("raclette").members), 1)
 
         # adds him twice
         result = self.client.post("/raclette/members/add", data={"name": "zorglub"})
 
         # should not accept him
-        self.assertEqual(len(models.Project.query.get("raclette").members), 1)
+        self.assertEqual(len(self.get_project("raclette").members), 1)
 
         # add fred
         self.client.post("/raclette/members/add", data={"name": "fred"})
-        self.assertEqual(len(models.Project.query.get("raclette").members), 2)
+        self.assertEqual(len(self.get_project("raclette").members), 2)
 
         # check fred is present in the bills page
         result = self.client.get("/raclette/")
@@ -302,16 +356,15 @@ class BudgetTestCase(IhatemoneyTestCase):
 
         # remove fred
         self.client.post(
-            "/raclette/members/%s/delete"
-            % models.Project.query.get("raclette").members[-1].id
+            "/raclette/members/%s/delete" % self.get_project("raclette").members[-1].id
         )
 
         # as fred is not bound to any bill, he is removed
-        self.assertEqual(len(models.Project.query.get("raclette").members), 1)
+        self.assertEqual(len(self.get_project("raclette").members), 1)
 
         # add fred again
         self.client.post("/raclette/members/add", data={"name": "fred"})
-        fred_id = models.Project.query.get("raclette").members[-1].id
+        fred_id = self.get_project("raclette").members[-1].id
 
         # bound him to a bill
         result = self.client.post(
@@ -329,8 +382,8 @@ class BudgetTestCase(IhatemoneyTestCase):
         self.client.post(f"/raclette/members/{fred_id}/delete")
 
         # he is still in the database, but is deactivated
-        self.assertEqual(len(models.Project.query.get("raclette").members), 2)
-        self.assertEqual(len(models.Project.query.get("raclette").active_members), 1)
+        self.assertEqual(len(self.get_project("raclette").members), 2)
+        self.assertEqual(len(self.get_project("raclette").active_members), 1)
 
         # as fred is now deactivated, check that he is not listed when adding
         # a bill or displaying the balance
@@ -344,14 +397,14 @@ class BudgetTestCase(IhatemoneyTestCase):
 
         # adding him again should reactivate him
         self.client.post("/raclette/members/add", data={"name": "fred"})
-        self.assertEqual(len(models.Project.query.get("raclette").active_members), 2)
+        self.assertEqual(len(self.get_project("raclette").active_members), 2)
 
         # adding an user with the same name as another user from a different
         # project should not cause any troubles
         self.post_project("randomid")
         self.login("randomid")
         self.client.post("/randomid/members/add", data={"name": "fred"})
-        self.assertEqual(len(models.Project.query.get("randomid").active_members), 1)
+        self.assertEqual(len(self.get_project("randomid").active_members), 1)
 
     def test_person_model(self):
         self.post_project("raclette")
@@ -359,7 +412,7 @@ class BudgetTestCase(IhatemoneyTestCase):
 
         # adds a member to this project
         self.client.post("/raclette/members/add", data={"name": "zorglub"})
-        zorglub = models.Project.query.get("raclette").members[-1]
+        zorglub = self.get_project("raclette").members[-1]
 
         # should not have any bills
         self.assertFalse(zorglub.has_bills())
@@ -377,7 +430,7 @@ class BudgetTestCase(IhatemoneyTestCase):
         )
 
         # should have a bill now
-        zorglub = models.Project.query.get("raclette").members[-1]
+        zorglub = self.get_project("raclette").members[-1]
         self.assertTrue(zorglub.has_bills())
 
     def test_member_delete_method(self):
@@ -393,7 +446,7 @@ class BudgetTestCase(IhatemoneyTestCase):
 
         # delete user using POST method
         self.client.post("/raclette/members/1/delete")
-        self.assertEqual(len(models.Project.query.get("raclette").active_members), 0)
+        self.assertEqual(len(self.get_project("raclette").active_members), 0)
         # try to delete an user already deleted
         self.client.post("/raclette/members/1/delete")
 
@@ -401,7 +454,7 @@ class BudgetTestCase(IhatemoneyTestCase):
         # test that a demo project is created if none is defined
         self.assertEqual([], models.Project.query.all())
         self.client.get("/demo")
-        demo = models.Project.query.get("demo")
+        demo = self.get_project("demo")
         self.assertTrue(demo is not None)
 
         self.assertEqual(["Amina", "Georg", "Alice"], [m.name for m in demo.members])
@@ -429,14 +482,14 @@ class BudgetTestCase(IhatemoneyTestCase):
         self.assertIn("Authentication", resp.data.decode("utf-8"))
 
         # try to connect with wrong credentials should not work
-        with self.app.test_client() as c:
+        with self.client as c:
             resp = c.post("/authenticate", data={"id": "raclette", "password": "nope"})
 
             self.assertIn("Authentication", resp.data.decode("utf-8"))
             self.assertNotIn("raclette", session)
 
         # try to connect with the right credentials should work
-        with self.app.test_client() as c:
+        with self.client as c:
             resp = c.post(
                 "/authenticate", data={"id": "raclette", "password": "raclette"}
             )
@@ -451,10 +504,23 @@ class BudgetTestCase(IhatemoneyTestCase):
 
         # test that with admin credentials, one can access every project
         self.app.config["ADMIN_PASSWORD"] = generate_password_hash("pass")
-        with self.app.test_client() as c:
+        with self.client as c:
             resp = c.post("/admin?goto=%2Fraclette", data={"admin_password": "pass"})
             self.assertNotIn("Authentication", resp.data.decode("utf-8"))
             self.assertTrue(session["is_admin"])
+
+    def test_authentication_with_upper_case(self):
+        self.post_project("Raclette")
+
+        # try to connect with the right credentials should work
+        with self.client as c:
+            resp = c.post(
+                "/authenticate", data={"id": "Raclette", "password": "Raclette"}
+            )
+
+            self.assertNotIn("Authentication", resp.data.decode("utf-8"))
+            self.assertIn("raclette", session)
+            self.assertTrue(session["raclette"])
 
     def test_admin_authentication(self):
         self.app.config["ADMIN_PASSWORD"] = generate_password_hash("pass")
@@ -513,11 +579,11 @@ class BudgetTestCase(IhatemoneyTestCase):
     def test_manage_bills(self):
         self.post_project("raclette")
 
-        # add two persons
+        # add two participants
         self.client.post("/raclette/members/add", data={"name": "zorglub"})
         self.client.post("/raclette/members/add", data={"name": "fred"})
 
-        members_ids = [m.id for m in models.Project.query.get("raclette").members]
+        members_ids = [m.id for m in self.get_project("raclette").members]
 
         # create a bill
         self.client.post(
@@ -530,7 +596,7 @@ class BudgetTestCase(IhatemoneyTestCase):
                 "amount": "25",
             },
         )
-        models.Project.query.get("raclette")
+        self.get_project("raclette")
         bill = models.Bill.query.one()
         self.assertEqual(bill.amount, 25)
 
@@ -549,8 +615,12 @@ class BudgetTestCase(IhatemoneyTestCase):
         bill = models.Bill.query.one()
         self.assertEqual(bill.amount, 10, "bill edition")
 
-        # delete the bill
-        self.client.get(f"/raclette/delete/{bill.id}")
+        # Try to delete the bill with a GET: it should fail
+        response = self.client.get(f"/raclette/delete/{bill.id}")
+        self.assertEqual(response.status_code, 405)
+        self.assertEqual(1, len(models.Bill.query.all()), "bill deletion")
+        # Really delete the bill
+        self.client.post(f"/raclette/delete/{bill.id}")
         self.assertEqual(0, len(models.Bill.query.all()), "bill deletion")
 
         # test balance
@@ -587,7 +657,7 @@ class BudgetTestCase(IhatemoneyTestCase):
             },
         )
 
-        balance = models.Project.query.get("raclette").balance
+        balance = self.get_project("raclette").balance
         self.assertEqual(set(balance.values()), set([19.0, -19.0]))
 
         # Bill with negative amount
@@ -618,16 +688,45 @@ class BudgetTestCase(IhatemoneyTestCase):
         bill = models.Bill.query.filter(models.Bill.date == "2011-08-01")[0]
         self.assertEqual(bill.amount, 25.02)
 
+        # add a bill with a valid external link
+        self.client.post(
+            "/raclette/add",
+            data={
+                "date": "2015-05-05",
+                "what": "fromage à raclette",
+                "payer": members_ids[0],
+                "payed_for": members_ids,
+                "amount": "42",
+                "external_link": "https://example.com/fromage",
+            },
+        )
+        bill = models.Bill.query.filter(models.Bill.date == "2015-05-05")[0]
+        self.assertEqual(bill.external_link, "https://example.com/fromage")
+
+        # add a bill with an invalid external link
+        resp = self.client.post(
+            "/raclette/add",
+            data={
+                "date": "2015-05-06",
+                "what": "mauvais fromage à raclette",
+                "payer": members_ids[0],
+                "payed_for": members_ids,
+                "amount": "42000",
+                "external_link": "javascript:alert('Tu bluffes, Martoni.')",
+            },
+        )
+        self.assertIn("Invalid URL", resp.data.decode("utf-8"))
+
     def test_weighted_balance(self):
         self.post_project("raclette")
 
-        # add two persons
+        # add two participants
         self.client.post("/raclette/members/add", data={"name": "zorglub"})
         self.client.post(
             "/raclette/members/add", data={"name": "freddy familly", "weight": 4}
         )
 
-        members_ids = [m.id for m in models.Project.query.get("raclette").members]
+        members_ids = [m.id for m in self.get_project("raclette").members]
 
         # test balance
         self.client.post(
@@ -652,7 +751,7 @@ class BudgetTestCase(IhatemoneyTestCase):
             },
         )
 
-        balance = models.Project.query.get("raclette").balance
+        balance = self.get_project("raclette").balance
         self.assertEqual(set(balance.values()), set([6, -6]))
 
     def test_trimmed_members(self):
@@ -661,14 +760,14 @@ class BudgetTestCase(IhatemoneyTestCase):
         # Add two times the same person (with a space at the end).
         self.client.post("/raclette/members/add", data={"name": "zorglub"})
         self.client.post("/raclette/members/add", data={"name": "zorglub "})
-        members = models.Project.query.get("raclette").members
+        members = self.get_project("raclette").members
 
         self.assertEqual(len(members), 1)
 
     def test_weighted_members_list(self):
         self.post_project("raclette")
 
-        # add two persons
+        # add two participants
         self.client.post("/raclette/members/add", data={"name": "zorglub"})
         self.client.post("/raclette/members/add", data={"name": "tata", "weight": 1})
 
@@ -693,13 +792,13 @@ class BudgetTestCase(IhatemoneyTestCase):
 
         # An error should be generated, and its weight should still be 1.
         self.assertIn('<p class="alert alert-danger">', resp.data.decode("utf-8"))
-        self.assertEqual(len(models.Project.query.get("raclette").members), 1)
-        self.assertEqual(models.Project.query.get("raclette").members[0].weight, 1)
+        self.assertEqual(len(self.get_project("raclette").members), 1)
+        self.assertEqual(self.get_project("raclette").members[0].weight, 1)
 
     def test_rounding(self):
         self.post_project("raclette")
 
-        # add members
+        # add participants
         self.client.post("/raclette/members/add", data={"name": "zorglub"})
         self.client.post("/raclette/members/add", data={"name": "fred"})
         self.client.post("/raclette/members/add", data={"name": "tata"})
@@ -738,11 +837,11 @@ class BudgetTestCase(IhatemoneyTestCase):
             },
         )
 
-        balance = models.Project.query.get("raclette").balance
+        balance = self.get_project("raclette").balance
         result = {}
-        result[models.Project.query.get("raclette").members[0].id] = 8.12
-        result[models.Project.query.get("raclette").members[1].id] = 0.0
-        result[models.Project.query.get("raclette").members[2].id] = -8.12
+        result[self.get_project("raclette").members[0].id] = 8.12
+        result[self.get_project("raclette").members[1].id] = 0.0
+        result[self.get_project("raclette").members[2].id] = -8.12
         # Since we're using floating point to store currency, we can have some
         # rounding issues that prevent test from working.
         # However, we should obtain the same values as the theoretical ones if we
@@ -764,7 +863,7 @@ class BudgetTestCase(IhatemoneyTestCase):
 
         resp = self.client.post("/raclette/edit", data=new_data, follow_redirects=True)
         self.assertEqual(resp.status_code, 200)
-        project = models.Project.query.get("raclette")
+        project = self.get_project("raclette")
 
         self.assertEqual(project.name, new_data["name"])
         self.assertEqual(project.contact_email, new_data["contact_email"])
@@ -795,7 +894,7 @@ class BudgetTestCase(IhatemoneyTestCase):
             follow_redirects=True,
         )
         self.assertIn(
-            "<thead><tr><th>Project</th><th>Number of members",
+            "<thead><tr><th>Project</th><th>Number of participants",
             resp.data.decode("utf-8"),
         )
 
@@ -808,12 +907,25 @@ class BudgetTestCase(IhatemoneyTestCase):
         # Output is checked with the USD sign
         self.post_project("raclette", default_currency="USD")
 
-        # add members
+        # add participants
         self.client.post("/raclette/members/add", data={"name": "zorglub", "weight": 2})
         self.client.post("/raclette/members/add", data={"name": "fred"})
         self.client.post("/raclette/members/add", data={"name": "tata"})
-        # Add a member with a balance=0 :
+        # Add a participant with a balance at 0 :
         self.client.post("/raclette/members/add", data={"name": "pépé"})
+
+        # Check that there are no monthly statistics and no active months
+        project = self.get_project("raclette")
+        self.assertEqual(len(project.active_months_range()), 0)
+        self.assertEqual(len(project.monthly_stats), 0)
+
+        # Check that the "monthly expenses" table is empty
+        response = self.client.get("/raclette/statistics")
+        regex = (
+            r"<table id=\"monthly_stats\".*>\s*<thead>\s*<tr>\s*<th>Period</th>\s*"
+            r"<th>Spent</th>\s*</tr>\s*</thead>\s*<tbody>\s*</tbody>\s*</table>"
+        )
+        self.assertRegex(response.data.decode("utf-8"), regex)
 
         # create bills
         self.client.post(
@@ -850,7 +962,7 @@ class BudgetTestCase(IhatemoneyTestCase):
         )
 
         response = self.client.get("/raclette/statistics")
-        regex = r"<td class=\"d-md-none\">{}</td>\s+<td>{}</td>\s+<td>{}</td>"
+        regex = r"<td class=\"d-md-none\">{}</td>\s*<td>{}</td>\s*<td>{}</td>"
         self.assertRegex(
             response.data.decode("utf-8"),
             regex.format("zorglub", r"\$20\.00", r"\$31\.67"),
@@ -880,6 +992,99 @@ class BudgetTestCase(IhatemoneyTestCase):
         self.assertRegex(response.data.decode("utf-8"), re.compile(regex1, re.DOTALL))
         self.assertRegex(response.data.decode("utf-8"), re.compile(regex2, re.DOTALL))
 
+        # Check monthly expenses again: it should have a single month and the correct amount
+        august = datetime.date(year=2011, month=8, day=1)
+        self.assertEqual(project.active_months_range(), [august])
+        self.assertEqual(dict(project.monthly_stats[2011]), {8: 40.0})
+
+        # Add bills for other months and check monthly expenses again
+        self.client.post(
+            "/raclette/add",
+            data={
+                "date": "2011-12-20",
+                "what": "fromage à raclette",
+                "payer": 2,
+                "payed_for": [1, 2],
+                "amount": "30",
+            },
+        )
+        months = [
+            datetime.date(year=2011, month=12, day=1),
+            datetime.date(year=2011, month=11, day=1),
+            datetime.date(year=2011, month=10, day=1),
+            datetime.date(year=2011, month=9, day=1),
+            datetime.date(year=2011, month=8, day=1),
+        ]
+        amounts_2011 = {
+            12: 30.0,
+            8: 40.0,
+        }
+        self.assertEqual(project.active_months_range(), months)
+        self.assertEqual(dict(project.monthly_stats[2011]), amounts_2011)
+
+        # Test more corner cases: first day of month as oldest bill
+        self.client.post(
+            "/raclette/add",
+            data={
+                "date": "2011-08-01",
+                "what": "ice cream",
+                "payer": 2,
+                "payed_for": [1, 2],
+                "amount": "10",
+            },
+        )
+        amounts_2011[8] += 10.0
+        self.assertEqual(project.active_months_range(), months)
+        self.assertEqual(dict(project.monthly_stats[2011]), amounts_2011)
+
+        # Last day of month as newest bill
+        self.client.post(
+            "/raclette/add",
+            data={
+                "date": "2011-12-31",
+                "what": "champomy",
+                "payer": 1,
+                "payed_for": [1, 2],
+                "amount": "10",
+            },
+        )
+        amounts_2011[12] += 10.0
+        self.assertEqual(project.active_months_range(), months)
+        self.assertEqual(dict(project.monthly_stats[2011]), amounts_2011)
+
+        # Last day of month as oldest bill
+        self.client.post(
+            "/raclette/add",
+            data={
+                "date": "2011-07-31",
+                "what": "smoothie",
+                "payer": 1,
+                "payed_for": [1, 2],
+                "amount": "20",
+            },
+        )
+        months.append(datetime.date(year=2011, month=7, day=1))
+        amounts_2011[7] = 20.0
+        self.assertEqual(project.active_months_range(), months)
+        self.assertEqual(dict(project.monthly_stats[2011]), amounts_2011)
+
+        # First day of month as newest bill
+        self.client.post(
+            "/raclette/add",
+            data={
+                "date": "2012-01-01",
+                "what": "more champomy",
+                "payer": 2,
+                "payed_for": [1, 2],
+                "amount": "30",
+            },
+        )
+        months.insert(0, datetime.date(year=2012, month=1, day=1))
+        amounts_2012 = {1: 30.0}
+        self.assertEqual(project.active_months_range(), months)
+        self.assertEqual(dict(project.monthly_stats[2011]), amounts_2011)
+        self.assertEqual(dict(project.monthly_stats[2012]), amounts_2012)
+
     def test_settle_page(self):
         self.post_project("raclette")
         response = self.client.get("/raclette/settle_bills")
@@ -888,11 +1093,11 @@ class BudgetTestCase(IhatemoneyTestCase):
     def test_settle(self):
         self.post_project("raclette")
 
-        # add members
+        # add participants
         self.client.post("/raclette/members/add", data={"name": "zorglub"})
         self.client.post("/raclette/members/add", data={"name": "fred"})
         self.client.post("/raclette/members/add", data={"name": "tata"})
-        # Add a member with a balance=0 :
+        # Add a participant with a balance at 0 :
         self.client.post("/raclette/members/add", data={"name": "pépé"})
 
         # create bills
@@ -928,14 +1133,14 @@ class BudgetTestCase(IhatemoneyTestCase):
                 "amount": "10",
             },
         )
-        project = models.Project.query.get("raclette")
+        project = self.get_project("raclette")
         transactions = project.get_transactions_to_settle_bill()
         members = defaultdict(int)
         # We should have the same values between transactions and project balances
         for t in transactions:
             members[t["ower"]] -= t["amount"]
             members[t["receiver"]] += t["amount"]
-        balance = models.Project.query.get("raclette").balance
+        balance = self.get_project("raclette").balance
         for m, a in members.items():
             assert abs(a - balance[m.id]) < 0.01
         return
@@ -943,7 +1148,7 @@ class BudgetTestCase(IhatemoneyTestCase):
     def test_settle_zero(self):
         self.post_project("raclette")
 
-        # add members
+        # add participants
         self.client.post("/raclette/members/add", data={"name": "zorglub"})
         self.client.post("/raclette/members/add", data={"name": "fred"})
         self.client.post("/raclette/members/add", data={"name": "tata"})
@@ -981,7 +1186,7 @@ class BudgetTestCase(IhatemoneyTestCase):
                 "amount": "13.33",
             },
         )
-        project = models.Project.query.get("raclette")
+        project = self.get_project("raclette")
         transactions = project.get_transactions_to_settle_bill()
 
         # There should not be any zero-amount transfer after rounding
@@ -993,342 +1198,12 @@ class BudgetTestCase(IhatemoneyTestCase):
                 msg=f"{t['amount']} is equal to zero after rounding",
             )
 
-    def test_export(self):
-        self.post_project("raclette")
-
-        # add members
-        self.client.post("/raclette/members/add", data={"name": "zorglub", "weight": 2})
-        self.client.post("/raclette/members/add", data={"name": "fred"})
-        self.client.post("/raclette/members/add", data={"name": "tata"})
-        self.client.post("/raclette/members/add", data={"name": "pépé"})
-
-        # create bills
-        self.client.post(
-            "/raclette/add",
-            data={
-                "date": "2016-12-31",
-                "what": "fromage à raclette",
-                "payer": 1,
-                "payed_for": [1, 2, 3, 4],
-                "amount": "10.0",
-                "original_currency": "USD",
-            },
-        )
-
-        self.client.post(
-            "/raclette/add",
-            data={
-                "date": "2016-12-31",
-                "what": "red wine",
-                "payer": 2,
-                "payed_for": [1, 3],
-                "amount": "200",
-                "original_currency": "USD",
-            },
-        )
-
-        self.client.post(
-            "/raclette/add",
-            data={
-                "date": "2017-01-01",
-                "what": "refund",
-                "payer": 3,
-                "payed_for": [2],
-                "amount": "13.33",
-                "original_currency": "USD",
-            },
-        )
-
-        # generate json export of bills
-        resp = self.client.get("/raclette/export/bills.json")
-        expected = [
-            {
-                "date": "2017-01-01",
-                "what": "refund",
-                "amount": 13.33,
-                "payer_name": "tata",
-                "payer_weight": 1.0,
-                "owers": ["fred"],
-            },
-            {
-                "date": "2016-12-31",
-                "what": "red wine",
-                "amount": 200.0,
-                "payer_name": "fred",
-                "payer_weight": 1.0,
-                "owers": ["zorglub", "tata"],
-            },
-            {
-                "date": "2016-12-31",
-                "what": "fromage \xe0 raclette",
-                "amount": 10.0,
-                "payer_name": "zorglub",
-                "payer_weight": 2.0,
-                "owers": ["zorglub", "fred", "tata", "p\xe9p\xe9"],
-            },
-        ]
-        self.assertEqual(json.loads(resp.data.decode("utf-8")), expected)
-
-        # generate csv export of bills
-        resp = self.client.get("/raclette/export/bills.csv")
-        expected = [
-            "date,what,amount,payer_name,payer_weight,owers",
-            "2017-01-01,refund,13.33,tata,1.0,fred",
-            '2016-12-31,red wine,200.0,fred,1.0,"zorglub, tata"',
-            '2016-12-31,fromage à raclette,10.0,zorglub,2.0,"zorglub, fred, tata, pépé"',
-        ]
-        received_lines = resp.data.decode("utf-8").split("\n")
-
-        for i, line in enumerate(expected):
-            self.assertEqual(
-                set(line.split(",")), set(received_lines[i].strip("\r").split(","))
-            )
-
-        # generate json export of transactions
-        resp = self.client.get("/raclette/export/transactions.json")
-        expected = [
-            {"amount": 2.00, "receiver": "fred", "ower": "p\xe9p\xe9"},
-            {"amount": 55.34, "receiver": "fred", "ower": "tata"},
-            {"amount": 127.33, "receiver": "fred", "ower": "zorglub"},
-        ]
-
-        self.assertEqual(json.loads(resp.data.decode("utf-8")), expected)
-
-        # generate csv export of transactions
-        resp = self.client.get("/raclette/export/transactions.csv")
-
-        expected = [
-            "amount,receiver,ower",
-            "2.0,fred,pépé",
-            "55.34,fred,tata",
-            "127.33,fred,zorglub",
-        ]
-        received_lines = resp.data.decode("utf-8").split("\n")
-
-        for i, line in enumerate(expected):
-            self.assertEqual(
-                set(line.split(",")), set(received_lines[i].strip("\r").split(","))
-            )
-
-        # wrong export_format should return a 404
-        resp = self.client.get("/raclette/export/transactions.wrong")
-        self.assertEqual(resp.status_code, 404)
-
-    def test_import_new_project(self):
-        # Import JSON in an empty project
-
-        self.post_project("raclette")
-        self.login("raclette")
-
-        project = models.Project.query.get("raclette")
-
-        json_to_import = [
-            {
-                "date": "2017-01-01",
-                "what": "refund",
-                "amount": 13.33,
-                "payer_name": "tata",
-                "payer_weight": 1.0,
-                "owers": ["fred"],
-            },
-            {
-                "date": "2016-12-31",
-                "what": "red wine",
-                "amount": 200.0,
-                "payer_name": "fred",
-                "payer_weight": 1.0,
-                "owers": ["zorglub", "tata"],
-            },
-            {
-                "date": "2016-12-31",
-                "what": "fromage a raclette",
-                "amount": 10.0,
-                "payer_name": "zorglub",
-                "payer_weight": 2.0,
-                "owers": ["zorglub", "fred", "tata", "pepe"],
-            },
-        ]
-
-        from ihatemoney.web import import_project
-
-        file = io.StringIO()
-        json.dump(json_to_import, file)
-        file.seek(0)
-        import_project(file, project)
-
-        bills = project.get_pretty_bills()
-
-        # Check if all bills has been add
-        self.assertEqual(len(bills), len(json_to_import))
-
-        # Check if name of bills are ok
-        b = [e["what"] for e in bills]
-        b.sort()
-        ref = [e["what"] for e in json_to_import]
-        ref.sort()
-
-        self.assertEqual(b, ref)
-
-        # Check if other informations in bill are ok
-        for i in json_to_import:
-            for j in bills:
-                if j["what"] == i["what"]:
-                    self.assertEqual(j["payer_name"], i["payer_name"])
-                    self.assertEqual(j["amount"], i["amount"])
-                    self.assertEqual(j["payer_weight"], i["payer_weight"])
-                    self.assertEqual(j["date"], i["date"])
-
-                    list_project = [ower for ower in j["owers"]]
-                    list_project.sort()
-                    list_json = [ower for ower in i["owers"]]
-                    list_json.sort()
-
-                    self.assertEqual(list_project, list_json)
-
-    def test_import_partial_project(self):
-        # Import a JSON in a project with already existing data
-
-        self.post_project("raclette")
-        self.login("raclette")
-
-        project = models.Project.query.get("raclette")
-
-        self.client.post("/raclette/members/add", data={"name": "zorglub", "weight": 2})
-        self.client.post("/raclette/members/add", data={"name": "fred"})
-        self.client.post("/raclette/members/add", data={"name": "tata"})
-        self.client.post(
-            "/raclette/add",
-            data={
-                "date": "2016-12-31",
-                "what": "red wine",
-                "payer": 2,
-                "payed_for": [1, 3],
-                "amount": "200",
-            },
-        )
-
-        json_to_import = [
-            {
-                "date": "2017-01-01",
-                "what": "refund",
-                "amount": 13.33,
-                "payer_name": "tata",
-                "payer_weight": 1.0,
-                "owers": ["fred"],
-            },
-            {  # This expense does not have to be present twice.
-                "date": "2016-12-31",
-                "what": "red wine",
-                "amount": 200.0,
-                "payer_name": "fred",
-                "payer_weight": 1.0,
-                "owers": ["zorglub", "tata"],
-            },
-            {
-                "date": "2016-12-31",
-                "what": "fromage a raclette",
-                "amount": 10.0,
-                "payer_name": "zorglub",
-                "payer_weight": 2.0,
-                "owers": ["zorglub", "fred", "tata", "pepe"],
-            },
-        ]
-
-        from ihatemoney.web import import_project
-
-        file = io.StringIO()
-        json.dump(json_to_import, file)
-        file.seek(0)
-        import_project(file, project)
-
-        bills = project.get_pretty_bills()
-
-        # Check if all bills has been add
-        self.assertEqual(len(bills), len(json_to_import))
-
-        # Check if name of bills are ok
-        b = [e["what"] for e in bills]
-        b.sort()
-        ref = [e["what"] for e in json_to_import]
-        ref.sort()
-
-        self.assertEqual(b, ref)
-
-        # Check if other informations in bill are ok
-        for i in json_to_import:
-            for j in bills:
-                if j["what"] == i["what"]:
-                    self.assertEqual(j["payer_name"], i["payer_name"])
-                    self.assertEqual(j["amount"], i["amount"])
-                    self.assertEqual(j["payer_weight"], i["payer_weight"])
-                    self.assertEqual(j["date"], i["date"])
-
-                    list_project = [ower for ower in j["owers"]]
-                    list_project.sort()
-                    list_json = [ower for ower in i["owers"]]
-                    list_json.sort()
-
-                    self.assertEqual(list_project, list_json)
-
-    def test_import_wrong_json(self):
-        self.post_project("raclette")
-        self.login("raclette")
-
-        project = models.Project.query.get("raclette")
-
-        json_1 = [
-            {  # wrong keys
-                "checked": False,
-                "dimensions": {"width": 5, "height": 10},
-                "id": 1,
-                "name": "A green door",
-                "price": 12.5,
-                "tags": ["home", "green"],
-            }
-        ]
-
-        json_2 = [
-            {  # amount missing
-                "date": "2017-01-01",
-                "what": "refund",
-                "payer_name": "tata",
-                "payer_weight": 1.0,
-                "owers": ["fred"],
-            }
-        ]
-
-        from ihatemoney.web import import_project
-
-        try:
-            file = io.StringIO()
-            json.dump(json_1, file)
-            file.seek(0)
-            import_project(file, project)
-        except ValueError:
-            self.assertTrue(True)
-        except Exception:
-            self.fail("unexpected exception raised")
-        else:
-            self.fail("ExpectedException not raised")
-
-        try:
-            file = io.StringIO()
-            json.dump(json_2, file)
-            file.seek(0)
-            import_project(file, project)
-        except ValueError:
-            self.assertTrue(True)
-        except Exception:
-            self.fail("unexpected exception raised")
-        else:
-            self.fail("ExpectedException not raised")
-
     def test_access_other_projects(self):
-        """Test that accessing or editing bills and members from another project fails"""
+        """Test that accessing or editing bills and participants from another project fails"""
         # Create project
         self.post_project("raclette")
 
-        # Add members
+        # Add participants
         self.client.post("/raclette/members/add", data={"name": "zorglub", "weight": 2})
         self.client.post("/raclette/members/add", data={"name": "fred"})
         self.client.post("/raclette/members/add", data={"name": "tata"})
@@ -1346,7 +1221,7 @@ class BudgetTestCase(IhatemoneyTestCase):
             },
         )
         # Ensure it has been created
-        raclette = models.Project.query.get("raclette")
+        raclette = self.get_project("raclette")
         self.assertEqual(raclette.get_bills().count(), 1)
 
         # Log out
@@ -1375,10 +1250,10 @@ class BudgetTestCase(IhatemoneyTestCase):
         resp = self.client.post("/tartiflette/edit/1", data=modified_bill)
         self.assertStatus(404, resp)
         # Try to delete bill
-        resp = self.client.get("/raclette/delete/1")
+        resp = self.client.post("/raclette/delete/1")
         self.assertStatus(303, resp)
         # Try to delete bill by ID
-        resp = self.client.get("/tartiflette/delete/1")
+        resp = self.client.post("/tartiflette/delete/1")
         self.assertStatus(302, resp)
 
         # Additional check that the bill was indeed not modified or deleted
@@ -1396,7 +1271,7 @@ class BudgetTestCase(IhatemoneyTestCase):
         bill = models.Bill.query.filter(models.Bill.id == 1).one_or_none()
         self.assertNotEqual(bill, None, "bill not found")
         self.assertEqual(bill.what, "roblochon")
-        self.client.get("/raclette/delete/1")
+        self.client.post("/raclette/delete/1")
         bill = models.Bill.query.filter(models.Bill.id == 1).one_or_none()
         self.assertEqual(bill, None)
 
@@ -1449,14 +1324,10 @@ class BudgetTestCase(IhatemoneyTestCase):
 
     def test_currency_switch(self):
 
-        mock_data = {"USD": 1, "EUR": 0.8, "CAD": 1.2, CurrencyConverter.no_currency: 1}
-        converter = CurrencyConverter()
-        converter.get_rates = MagicMock(return_value=mock_data)
-
         # A project should be editable
         self.post_project("raclette")
 
-        # add members
+        # add participants
         self.client.post("/raclette/members/add", data={"name": "zorglub"})
         self.client.post("/raclette/members/add", data={"name": "fred"})
         self.client.post("/raclette/members/add", data={"name": "tata"})
@@ -1495,7 +1366,7 @@ class BudgetTestCase(IhatemoneyTestCase):
             },
         )
 
-        project = models.Project.query.get("raclette")
+        project = self.get_project("raclette")
 
         # First all converted_amount should be the same as amount, with no currency
         for bill in project.get_bills():
@@ -1544,14 +1415,16 @@ class BudgetTestCase(IhatemoneyTestCase):
             },
         )
         last_bill = project.get_bills().first()
-        expected_amount = converter.exchange_currency(last_bill.amount, "CAD", "EUR")
+        expected_amount = self.converter.exchange_currency(
+            last_bill.amount, "CAD", "EUR"
+        )
         assert last_bill.converted_amount == expected_amount
 
         # Switch to USD. Now, NO bill should be in USD, since they already had a currency
         project.switch_currency("USD")
         for bill in project.get_bills():
             assert bill.original_currency != "USD"
-            expected_amount = converter.exchange_currency(
+            expected_amount = self.converter.exchange_currency(
                 bill.amount, bill.original_currency, "USD"
             )
             assert bill.converted_amount == expected_amount
@@ -1568,24 +1441,20 @@ class BudgetTestCase(IhatemoneyTestCase):
                 "password": "demo",
                 "contact_email": "demo@notmyidea.org",
                 "project_history": "y",
-                "default_currency": converter.no_currency,
+                "default_currency": CurrencyConverter.no_currency,
             },
         )
         # A user displayed error should be generated, and its currency should be the same.
         self.assertStatus(200, resp)
         self.assertIn('<p class="alert alert-danger">', resp.data.decode("utf-8"))
-        self.assertEqual(models.Project.query.get("raclette").default_currency, "USD")
+        self.assertEqual(self.get_project("raclette").default_currency, "USD")
 
     def test_currency_switch_to_bill_currency(self):
-
-        mock_data = {"USD": 1, "EUR": 0.8, "CAD": 1.2, CurrencyConverter.no_currency: 1}
-        converter = CurrencyConverter()
-        converter.get_rates = MagicMock(return_value=mock_data)
 
         # Default currency is 'XXX', but we should start from a project with a currency
         self.post_project("raclette", default_currency="USD")
 
-        # add members
+        # add participants
         self.client.post("/raclette/members/add", data={"name": "zorglub"})
         self.client.post("/raclette/members/add", data={"name": "fred"})
 
@@ -1602,10 +1471,10 @@ class BudgetTestCase(IhatemoneyTestCase):
             },
         )
 
-        project = models.Project.query.get("raclette")
+        project = self.get_project("raclette")
 
         bill = project.get_bills().first()
-        assert bill.converted_amount == converter.exchange_currency(
+        assert bill.converted_amount == self.converter.exchange_currency(
             bill.amount, "EUR", "USD"
         )
 
@@ -1616,14 +1485,10 @@ class BudgetTestCase(IhatemoneyTestCase):
 
     def test_currency_switch_to_no_currency(self):
 
-        mock_data = {"USD": 1, "EUR": 0.8, "CAD": 1.2, CurrencyConverter.no_currency: 1}
-        converter = CurrencyConverter()
-        converter.get_rates = MagicMock(return_value=mock_data)
-
         # Default currency is 'XXX', but we should start from a project with a currency
         self.post_project("raclette", default_currency="USD")
 
-        # add members
+        # add participants
         self.client.post("/raclette/members/add", data={"name": "zorglub"})
         self.client.post("/raclette/members/add", data={"name": "fred"})
 
@@ -1652,19 +1517,42 @@ class BudgetTestCase(IhatemoneyTestCase):
             },
         )
 
-        project = models.Project.query.get("raclette")
+        project = self.get_project("raclette")
 
         for bill in project.get_bills_unordered():
-            assert bill.converted_amount == converter.exchange_currency(
+            assert bill.converted_amount == self.converter.exchange_currency(
                 bill.amount, "EUR", "USD"
             )
 
         # And switch project to no currency: amount should be equal to what was submitted
-        project.switch_currency(converter.no_currency)
+        project.switch_currency(CurrencyConverter.no_currency)
         no_currency_bills = [
             (bill.amount, bill.converted_amount) for bill in project.get_bills()
         ]
         assert no_currency_bills == [(5.0, 5.0), (10.0, 10.0)]
+
+    def test_decimals_on_weighted_members_list(self):
+
+        self.post_project("raclette")
+
+        # add three users with different weights
+        self.client.post(
+            "/raclette/members/add", data={"name": "zorglub", "weight": 1.0}
+        )
+        self.client.post("/raclette/members/add", data={"name": "tata", "weight": 1.10})
+        self.client.post("/raclette/members/add", data={"name": "fred", "weight": 1.15})
+
+        # check if weights of the users are 1, 1.1, 1.15 respectively
+        resp = self.client.get("/raclette/")
+        self.assertIn(
+            'zorglub<span class="light">(x1)</span>', resp.data.decode("utf-8")
+        )
+        self.assertIn(
+            'tata<span class="light">(x1.1)</span>', resp.data.decode("utf-8")
+        )
+        self.assertIn(
+            'fred<span class="light">(x1.15)</span>', resp.data.decode("utf-8")
+        )
 
 
 if __name__ == "__main__":

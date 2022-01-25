@@ -3,9 +3,9 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-07-07 01:01+0200\n"
-"PO-Revision-Date: 2021-01-08 14:32+0000\n"
-"Last-Translator: Oliver Klimt <klimt.oliver@gmail.com>\n"
+"POT-Creation-Date: 2021-11-01 18:01+0100\n"
+"PO-Revision-Date: 2021-09-05 13:34+0000\n"
+"Last-Translator: Clonewayx <fillip1@seznam.cz>\n"
 "Language: cs\n"
 "Language-Team: Czech <https://hosted.weblate.org/projects/i-hate-money/i"
 "-hate-money/cs/>\n"
@@ -23,9 +23,11 @@ msgstr "Neplatná částka nebo výraz. Pouze čísla a operátory + - * / jsou 
 msgid "Project name"
 msgstr "Název projektu"
 
-#, fuzzy
 msgid "New private code"
-msgstr "Přístupový kód"
+msgstr "Nový soukromý kód"
+
+msgid "Enter a new code if you want to change it"
+msgstr "Pokud chcete provést změnu vložte nový kód"
 
 msgid "Email"
 msgstr "Email"
@@ -39,10 +41,15 @@ msgstr "Záznam IP adres pro historii projektu"
 msgid "Default Currency"
 msgstr "Výchozí měna"
 
+msgid "Setting a default currency enables currency conversion between bills"
+msgstr ""
+
 msgid ""
 "This project cannot be set to 'no currency' because it contains bills in "
 "multiple currencies."
 msgstr ""
+"Tento projekt nemůže být nastaven na  'bez měny' protože obsahuje účty v "
+"různých měnáh."
 
 msgid "Import previously exported JSON file"
 msgstr "Import exportovaného JSON souboru"
@@ -66,6 +73,24 @@ msgid ""
 msgstr ""
 "Projekt s tímto identifikátorem (\"%(project)s\") již existuje, zvolte "
 "nový identifikátor"
+
+msgid "Which is a real currency: Euro or Petro dollar?"
+msgstr ""
+
+msgid "euro"
+msgstr ""
+
+msgid "Please, validate the captcha to proceed."
+msgstr ""
+
+msgid "Enter private code to confirm deletion"
+msgstr "Potvrďte smazání vložením soukromého kódu"
+
+msgid "Unknown error"
+msgstr "Neznámá chyba"
+
+msgid "Invalid private code."
+msgstr "Neplatný soukromý přístupový kód."
 
 msgid "Get in"
 msgstr "Vstoupit"
@@ -132,7 +157,7 @@ msgid "Name"
 msgstr "Jméno"
 
 msgid "Weights should be positive"
-msgstr ""
+msgstr "Váhy musí být kladné"
 
 msgid "Weight"
 msgstr "Váha"
@@ -140,14 +165,15 @@ msgstr "Váha"
 msgid "Add"
 msgstr "Přidat"
 
-msgid "User name incorrect"
-msgstr "Nesprávné uživatelské jméno"
+msgid "The participant name is invalid"
+msgstr ""
 
-msgid "This project already have this member"
+#, fuzzy
+msgid "This project already have this participant"
 msgstr "Projekt již obsahuje tohoto člena"
 
 msgid "People to notify"
-msgstr "Osoby k informování"
+msgstr ""
 
 msgid "Send invites"
 msgstr "Poslat pozvánky"
@@ -156,17 +182,32 @@ msgstr "Poslat pozvánky"
 msgid "The email %(email)s is not valid"
 msgstr "Toto (%(email)s) není validní e-mail"
 
-msgid "Participant"
-msgstr "Účastník"
+#. List with two items only
+msgid "{dual_object_0} and {dual_object_1}"
+msgstr "{dual_object_0} a {dual_object_1}"
 
-msgid "Bill"
-msgstr "Účet"
+#. Last two items of a list with more than 3 items
+msgid "{previous_object}, and {end_object}"
+msgstr "{previous_object}, a {end_object}"
 
-msgid "Project"
-msgstr "Projekt"
+#. Two items in a middle of a list with more than 5 objects
+msgid "{previous_object}, {next_object}"
+msgstr ""
+
+#. First two items of a list with more than 3 items
+msgid "{start_object}, {next_object}"
+msgstr ""
 
 msgid "No Currency"
 msgstr "Žádná měna"
+
+#. Form error with only one error
+msgid "{prefix}: {error}"
+msgstr ""
+
+#. Form error with a list of errors
+msgid "{prefix}:<br />{errors}"
+msgstr ""
 
 msgid "Too many failed login attempts, please retry later."
 msgstr "Příliš mnoho pokusů, zkuste to později."
@@ -175,7 +216,7 @@ msgstr "Příliš mnoho pokusů, zkuste to později."
 msgid "This admin password is not the right one. Only %(num)d attempts left."
 msgstr ""
 
-msgid "You either provided a bad token or no project identifier."
+msgid "Provided token is invalid"
 msgstr ""
 
 msgid "This private code is not the right one"
@@ -202,34 +243,47 @@ msgid ""
 "instructions. Please check the email configuration of the server or "
 "contact the administrator."
 msgstr ""
+"Omlouváme se, během odesílání emailu s instrukcemi pro obnovení hesla se "
+"vyskytla chyba. Zkontrolujte si prosím nastavení vašeho emailového "
+"serveru nebo kontaktujte administrátora."
 
+#, fuzzy
 msgid "No token provided"
-msgstr ""
+msgstr "Nebyl vložen klíč"
 
+#, fuzzy
 msgid "Invalid token"
-msgstr ""
+msgstr "Neplatná klíč"
 
 msgid "Unknown project"
-msgstr ""
+msgstr "Neznámý projekt"
 
 msgid "Password successfully reset."
-msgstr ""
+msgstr "Heslo bylo úspěšné obnoveno."
 
 msgid "Project successfully uploaded"
-msgstr ""
+msgstr "Projekt byl úspěšně nahrán."
 
 msgid "Invalid JSON"
+msgstr "Neplatný JSON"
+
+msgid ""
+"Cannot add bills in multiple currencies to a project without default "
+"currency"
 msgstr ""
 
 msgid "Project successfully deleted"
-msgstr ""
+msgstr "Projekt byl úspěšně smazán"
+
+msgid "Error deleting project"
+msgstr "Nastala chyba při mazání projektu"
 
 #, python-format
 msgid "You have been invited to share your expenses for %(project)s"
 msgstr ""
 
 msgid "Your invitations have been sent"
-msgstr ""
+msgstr "Vaše pozvánka byla odeslána"
 
 msgid ""
 "Sorry, there was an error while trying to send the invitation emails. "
@@ -241,31 +295,54 @@ msgstr ""
 msgid "%(member)s has been added"
 msgstr ""
 
+msgid "Error activating participant"
+msgstr ""
+
 #, python-format
 msgid "%(name)s is part of this project again"
 msgstr ""
 
+msgid "Error removing participant"
+msgstr ""
+
 #, python-format
 msgid ""
-"User '%(name)s' has been deactivated. It will still appear in the users "
-"list until its balance becomes zero."
+"Participant '%(name)s' has been deactivated. It will still appear in the "
+"list until its balance reach zero."
 msgstr ""
 
 #, python-format
-msgid "User '%(name)s' has been removed"
+msgid "Participant '%(name)s' has been removed"
 msgstr ""
 
 #, python-format
-msgid "User '%(name)s' has been edited"
+msgid "Participant '%(name)s' has been modified"
 msgstr ""
 
 msgid "The bill has been added"
+msgstr ""
+
+msgid "Error deleting bill"
 msgstr ""
 
 msgid "The bill has been deleted"
 msgstr ""
 
 msgid "The bill has been modified"
+msgstr ""
+
+#, fuzzy
+msgid "Error deleting project history"
+msgstr "Povolit historii projektu"
+
+#, fuzzy
+msgid "Deleted project history."
+msgstr "Povolit historii projektu"
+
+msgid "Error deleting recorded IP addresses"
+msgstr ""
+
+msgid "Deleted recorded IP addresses in project history."
 msgstr ""
 
 msgid "Sorry, we were unable to find the page you've asked for."
@@ -280,6 +357,9 @@ msgstr ""
 msgid "Administration tasks are currently disabled."
 msgstr ""
 
+msgid "Authentication"
+msgstr ""
+
 msgid "The project you are trying to access do not exist, do you want to"
 msgstr ""
 
@@ -292,7 +372,10 @@ msgstr ""
 msgid "Create a new project"
 msgstr ""
 
-msgid "Number of members"
+msgid "Project"
+msgstr "Projekt"
+
+msgid "Number of participants"
 msgstr ""
 
 msgid "Number of bills"
@@ -326,11 +409,15 @@ msgstr ""
 msgid "Get it on"
 msgstr "Vstoupit"
 
-msgid "you sure?"
+msgid "Are you sure?"
 msgstr ""
 
 msgid "Edit project"
 msgstr ""
+
+#, fuzzy
+msgid "Delete project"
+msgstr "Vytvořit projekt"
 
 msgid "Import JSON"
 msgstr ""
@@ -365,22 +452,28 @@ msgstr ""
 msgid "Edit the project"
 msgstr ""
 
+msgid "This will remove all bills and participants in this project!"
+msgstr ""
+
 msgid "Edit this bill"
 msgstr ""
 
 msgid "Add a bill"
 msgstr ""
 
-msgid "Select all"
+msgid "Everyone"
 msgstr ""
 
-msgid "Select none"
+msgid "No one"
+msgstr ""
+
+msgid "More options"
 msgstr ""
 
 msgid "Add participant"
 msgstr ""
 
-msgid "Edit this member"
+msgid "Edit this participant"
 msgstr ""
 
 msgid "john.doe@example.com, mary.moe@site.com"
@@ -413,13 +506,12 @@ msgstr ""
 msgid "History Settings Changed"
 msgstr ""
 
-msgid "changed"
+#, python-format
+msgid "Bill %(name)s: %(property_name)s changed from %(before)s to %(after)s"
 msgstr ""
 
-msgid "from"
-msgstr ""
-
-msgid "to"
+#, python-format
+msgid "Bill %(name)s: %(property_name)s changed to %(after)s"
 msgstr ""
 
 msgid "Confirm Remove IP Adresses"
@@ -432,10 +524,10 @@ msgid ""
 "action cannot be undone."
 msgstr ""
 
-msgid "Close"
+msgid "Confirm deletion"
 msgstr ""
 
-msgid "Confirm Delete"
+msgid "Close"
 msgstr ""
 
 msgid "Delete Confirmation"
@@ -446,16 +538,12 @@ msgid ""
 "cannot be undone."
 msgstr ""
 
-msgid "Added"
+#, python-format
+msgid "Bill %(name)s: added %(owers_list_str)s to owers list"
 msgstr ""
 
-msgid "Removed"
-msgstr ""
-
-msgid "and"
-msgstr ""
-
-msgid "owers list"
+#, python-format
+msgid "Bill %(name)s: removed %(owers_list_str)s from owers list"
 msgstr ""
 
 #, python-format
@@ -512,31 +600,50 @@ msgstr ""
 msgid "From IP"
 msgstr ""
 
-msgid "added"
+#, fuzzy, python-format
+msgid "Project %(name)s added"
+msgstr "Název projektu"
+
+#, python-format
+msgid "Bill %(name)s added"
+msgstr ""
+
+#, python-format
+msgid "Participant %(name)s added"
 msgstr ""
 
 msgid "Project private code changed"
 msgstr ""
 
-msgid "Project renamed to"
+#, python-format
+msgid "Project renamed to %(new_project_name)s"
 msgstr ""
 
-msgid "Project contact email changed to"
+#, python-format
+msgid "Project contact email changed to %(new_email)s"
 msgstr ""
 
 msgid "Project settings modified"
 msgstr ""
 
-msgid "deactivated"
+#, python-format
+msgid "Participant %(name)s deactivated"
 msgstr ""
 
-msgid "reactivated"
+#, python-format
+msgid "Participant %(name)s reactivated"
 msgstr ""
 
-msgid "renamed to"
+#, python-format
+msgid "Participant %(name)s renamed to %(new_name)s"
 msgstr ""
 
-msgid "External link changed to"
+#, python-format
+msgid "Bill %(name)s renamed to %(new_description)s"
+msgstr ""
+
+#, python-format
+msgid "Participant %(name)s: weight changed from %(old_weight)s to %(new_weight)s"
 msgstr ""
 
 msgid "Amount"
@@ -546,13 +653,32 @@ msgstr ""
 msgid "Amount in %(currency)s"
 msgstr ""
 
-msgid "modified"
+#, python-format
+msgid "Bill %(name)s modified"
 msgstr ""
 
-msgid "removed"
+#, python-format
+msgid "Participant %(name)s modified"
 msgstr ""
 
-msgid "changed in a unknown way"
+#, python-format
+msgid "Bill %(name)s removed"
+msgstr ""
+
+#, python-format
+msgid "Participant %(name)s removed"
+msgstr ""
+
+#, python-format
+msgid "Project %(name)s changed in an unknown way"
+msgstr ""
+
+#, python-format
+msgid "Bill %(name)s changed in an unknown way"
+msgstr ""
+
+#, python-format
+msgid "Participant %(name)s changed in an unknown way"
 msgstr ""
 
 msgid "Nothing to list"
@@ -647,7 +773,10 @@ msgstr ""
 msgid "Administation Dashboard"
 msgstr ""
 
-msgid "\"I hate money\" is a free software"
+msgid "Legal information"
+msgstr ""
+
+msgid "\"I hate money\" is free software"
 msgstr ""
 
 msgid "you can contribute and improve it!"
@@ -655,6 +784,9 @@ msgstr ""
 
 #, python-format
 msgid "%(amount)s each"
+msgstr ""
+
+msgid "you sure?"
 msgstr ""
 
 msgid "Invite people"
@@ -686,9 +818,6 @@ msgstr ""
 
 #, python-format
 msgid "Added on %(date)s"
-msgstr ""
-
-msgid "Everyone"
 msgstr ""
 
 #, python-format
@@ -801,5 +930,107 @@ msgstr ""
 #~ " your friends. It is stored as-"
 #~ "is by the server, so don\\'t reuse"
 #~ " a personal password!"
+#~ msgstr ""
+
+#~ msgid "Participant"
+#~ msgstr "Účastník"
+
+#~ msgid "Bill"
+#~ msgstr "Účet"
+
+#~ msgid "Select all"
+#~ msgstr ""
+
+#~ msgid "Select none"
+#~ msgstr ""
+
+#~ msgid "changed"
+#~ msgstr ""
+
+#~ msgid "from"
+#~ msgstr ""
+
+#~ msgid "to"
+#~ msgstr ""
+
+#~ msgid "Confirm Delete"
+#~ msgstr ""
+
+#~ msgid "Added"
+#~ msgstr ""
+
+#~ msgid "Removed"
+#~ msgstr ""
+
+#~ msgid "and"
+#~ msgstr ""
+
+#~ msgid "owers list"
+#~ msgstr ""
+
+#~ msgid "added"
+#~ msgstr ""
+
+#~ msgid "Project renamed to"
+#~ msgstr ""
+
+#~ msgid "Project contact email changed to"
+#~ msgstr ""
+
+#~ msgid "deactivated"
+#~ msgstr ""
+
+#~ msgid "reactivated"
+#~ msgstr ""
+
+#~ msgid "renamed to"
+#~ msgstr ""
+
+#~ msgid "External link changed to"
+#~ msgstr ""
+
+#~ msgid "modified"
+#~ msgstr ""
+
+#~ msgid "removed"
+#~ msgstr ""
+
+#~ msgid "changed in a unknown way"
+#~ msgstr ""
+
+#~ msgid "You either provided a bad token or no project identifier."
+#~ msgstr ""
+
+#~ msgid "User name incorrect"
+#~ msgstr "Nesprávné uživatelské jméno"
+
+#~ msgid "People to notify"
+#~ msgstr "Osoby k informování"
+
+#~ msgid "Error activating member"
+#~ msgstr ""
+
+#~ msgid "Error removing member"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "User '%(name)s' has been deactivated. It"
+#~ " will still appear in the users "
+#~ "list until its balance becomes zero."
+#~ msgstr ""
+
+#~ msgid "User '%(name)s' has been removed"
+#~ msgstr ""
+
+#~ msgid "User '%(name)s' has been edited"
+#~ msgstr ""
+
+#~ msgid "Number of members"
+#~ msgstr ""
+
+#~ msgid "Edit this member"
+#~ msgstr ""
+
+#~ msgid "Participants to notify"
 #~ msgstr ""
 

@@ -11,20 +11,25 @@ class APITestCase(IhatemoneyTestCase):
 
     """Tests the API"""
 
-    def api_create(self, name, id=None, password=None, contact=None):
+    def api_create(
+        self, name, id=None, password=None, contact=None, default_currency=None
+    ):
         id = id or name
         password = password or name
         contact = contact or f"{name}@notmyidea.org"
 
+        data = {
+            "name": name,
+            "id": id,
+            "password": password,
+            "contact_email": contact,
+        }
+        if default_currency:
+            data["default_currency"] = default_currency
+
         return self.client.post(
             "/api/projects",
-            data={
-                "name": name,
-                "id": id,
-                "password": password,
-                "contact_email": contact,
-                "default_currency": "USD",
-            },
+            data=data,
         )
 
     def api_add_member(self, project, name, weight=1):
@@ -85,7 +90,7 @@ class APITestCase(IhatemoneyTestCase):
                 "id": "raclette",
                 "password": "raclette",
                 "contact_email": "not-an-email",
-                "default_currency": "USD",
+                "default_currency": "XXX",
             },
         )
 
@@ -95,8 +100,14 @@ class APITestCase(IhatemoneyTestCase):
         )
 
         # create it
-        resp = self.api_create("raclette")
-        self.assertTrue(201, resp.status_code)
+        with self.app.mail.record_messages() as outbox:
+
+            resp = self.api_create("raclette")
+            self.assertTrue(201, resp.status_code)
+
+            # Check that email messages have been sent.
+            self.assertEqual(len(outbox), 1)
+            self.assertEqual(outbox[0].recipients, ["raclette@notmyidea.org"])
 
         # create it twice should return a 400
         resp = self.api_create("raclette")
@@ -114,7 +125,7 @@ class APITestCase(IhatemoneyTestCase):
             "members": [],
             "name": "raclette",
             "contact_email": "raclette@notmyidea.org",
-            "default_currency": "USD",
+            "default_currency": "XXX",
             "id": "raclette",
             "logging_preference": 1,
         }
@@ -126,7 +137,7 @@ class APITestCase(IhatemoneyTestCase):
             "/api/projects/raclette",
             data={
                 "contact_email": "yeah@notmyidea.org",
-                "default_currency": "USD",
+                "default_currency": "XXX",
                 "password": "raclette",
                 "name": "The raclette party",
                 "project_history": "y",
@@ -144,7 +155,7 @@ class APITestCase(IhatemoneyTestCase):
         expected = {
             "name": "The raclette party",
             "contact_email": "yeah@notmyidea.org",
-            "default_currency": "USD",
+            "default_currency": "XXX",
             "members": [],
             "id": "raclette",
             "logging_preference": 1,
@@ -157,7 +168,7 @@ class APITestCase(IhatemoneyTestCase):
             "/api/projects/raclette",
             data={
                 "contact_email": "yeah@notmyidea.org",
-                "default_currency": "USD",
+                "default_currency": "XXX",
                 "password": "tartiflette",
                 "name": "The raclette party",
             },
@@ -213,7 +224,7 @@ class APITestCase(IhatemoneyTestCase):
             "/api/projects/raclette/token", headers=self.get_auth("raclette")
         )
         decoded_resp = json.loads(resp.data.decode("utf-8"))
-        resp = self.client.get("/authenticate?token={}".format(decoded_resp["token"]))
+        resp = self.client.get(f"/raclette/join/{decoded_resp['token']}")
         # Test that we are redirected.
         self.assertEqual(302, resp.status_code)
 
@@ -221,7 +232,7 @@ class APITestCase(IhatemoneyTestCase):
         # create a project
         self.api_create("raclette")
 
-        # get the list of members (should be empty)
+        # get the list of participants (should be empty)
         req = self.client.get(
             "/api/projects/raclette/members", headers=self.get_auth("raclette")
         )
@@ -240,7 +251,7 @@ class APITestCase(IhatemoneyTestCase):
         self.assertStatus(201, req)
         self.assertEqual("1\n", req.data.decode("utf-8"))
 
-        # the list of members should contain one member
+        # the list of participants should contain one member
         req = self.client.get(
             "/api/projects/raclette/members", headers=self.get_auth("raclette")
         )
@@ -256,7 +267,7 @@ class APITestCase(IhatemoneyTestCase):
         )
         self.assertStatus(400, req)
 
-        # edit the member
+        # edit the participant
         req = self.client.put(
             "/api/projects/raclette/members/1",
             data={"name": "Fred", "weight": 2},
@@ -284,7 +295,7 @@ class APITestCase(IhatemoneyTestCase):
 
         self.assertStatus(200, req)
 
-        # de-activate the user
+        # de-activate the participant
         req = self.client.put(
             "/api/projects/raclette/members/1",
             data={"name": "Fred", "activated": False},
@@ -298,7 +309,7 @@ class APITestCase(IhatemoneyTestCase):
         self.assertStatus(200, req)
         self.assertEqual(False, json.loads(req.data.decode("utf-8"))["activated"])
 
-        # re-activate the user
+        # re-activate the participant
         req = self.client.put(
             "/api/projects/raclette/members/1",
             data={"name": "Fred", "activated": True},
@@ -319,7 +330,7 @@ class APITestCase(IhatemoneyTestCase):
 
         self.assertStatus(200, req)
 
-        # the list of members should be empty
+        # the list of participants should be empty
         req = self.client.get(
             "/api/projects/raclette/members", headers=self.get_auth("raclette")
         )
@@ -331,7 +342,7 @@ class APITestCase(IhatemoneyTestCase):
         # create a project
         self.api_create("raclette")
 
-        # add members
+        # add participants
         self.api_add_member("raclette", "zorglub")
         self.api_add_member("raclette", "fred")
         self.api_add_member("raclette", "quentin")
@@ -380,7 +391,7 @@ class APITestCase(IhatemoneyTestCase):
             "date": "2011-08-10",
             "id": 1,
             "converted_amount": 25.0,
-            "original_currency": "USD",
+            "original_currency": "XXX",
             "external_link": "https://raclette.fr",
         }
 
@@ -451,7 +462,7 @@ class APITestCase(IhatemoneyTestCase):
             "date": "2011-09-10",
             "external_link": "https://raclette.fr",
             "converted_amount": 25.0,
-            "original_currency": "USD",
+            "original_currency": "XXX",
             "id": 1,
         }
 
@@ -479,7 +490,7 @@ class APITestCase(IhatemoneyTestCase):
         # create a project
         self.api_create("raclette")
 
-        # add members
+        # add participants
         self.api_add_member("raclette", "zorglub")
         self.api_add_member("raclette", "fred")
 
@@ -529,7 +540,7 @@ class APITestCase(IhatemoneyTestCase):
                 "date": "2011-08-10",
                 "id": id,
                 "external_link": "",
-                "original_currency": "USD",
+                "original_currency": "XXX",
                 "converted_amount": expected_amount,
             }
 
@@ -564,11 +575,167 @@ class APITestCase(IhatemoneyTestCase):
             )
             self.assertStatus(400, req)
 
+    def test_currencies(self):
+        # check /currencies for list of supported currencies
+        resp = self.client.get("/api/currencies")
+        self.assertTrue(201, resp.status_code)
+        self.assertIn("XXX", json.loads(resp.data.decode("utf-8")))
+
+        # create project with a default currency
+        resp = self.api_create("raclette", default_currency="EUR")
+        self.assertTrue(201, resp.status_code)
+
+        # get information about it
+        resp = self.client.get(
+            "/api/projects/raclette", headers=self.get_auth("raclette")
+        )
+
+        self.assertTrue(200, resp.status_code)
+        expected = {
+            "members": [],
+            "name": "raclette",
+            "contact_email": "raclette@notmyidea.org",
+            "default_currency": "EUR",
+            "id": "raclette",
+            "logging_preference": 1,
+        }
+        decoded_resp = json.loads(resp.data.decode("utf-8"))
+        self.assertDictEqual(decoded_resp, expected)
+
+        # Add participants
+        self.api_add_member("raclette", "zorglub")
+        self.api_add_member("raclette", "fred")
+        self.api_add_member("raclette", "quentin")
+
+        # Add a bill without explicit currency
+        req = self.client.post(
+            "/api/projects/raclette/bills",
+            data={
+                "date": "2011-08-10",
+                "what": "fromage",
+                "payer": "1",
+                "payed_for": ["1", "2"],
+                "amount": "25",
+                "external_link": "https://raclette.fr",
+            },
+            headers=self.get_auth("raclette"),
+        )
+
+        # should return the id
+        self.assertStatus(201, req)
+        self.assertEqual(req.data.decode("utf-8"), "1\n")
+
+        # get this bill details
+        req = self.client.get(
+            "/api/projects/raclette/bills/1", headers=self.get_auth("raclette")
+        )
+
+        # compare with the added info
+        self.assertStatus(200, req)
+        expected = {
+            "what": "fromage",
+            "payer_id": 1,
+            "owers": [
+                {"activated": True, "id": 1, "name": "zorglub", "weight": 1},
+                {"activated": True, "id": 2, "name": "fred", "weight": 1},
+            ],
+            "amount": 25.0,
+            "date": "2011-08-10",
+            "id": 1,
+            "converted_amount": 25.0,
+            "original_currency": "EUR",
+            "external_link": "https://raclette.fr",
+        }
+
+        got = json.loads(req.data.decode("utf-8"))
+        self.assertEqual(
+            datetime.date.today(),
+            datetime.datetime.strptime(got["creation_date"], "%Y-%m-%d").date(),
+        )
+        del got["creation_date"]
+        self.assertDictEqual(expected, got)
+
+        # Change bill amount and currency
+        req = self.client.put(
+            "/api/projects/raclette/bills/1",
+            data={
+                "date": "2011-08-10",
+                "what": "fromage",
+                "payer": "1",
+                "payed_for": ["1", "2"],
+                "amount": "30",
+                "external_link": "https://raclette.fr",
+                "original_currency": "CAD",
+            },
+            headers=self.get_auth("raclette"),
+        )
+        self.assertStatus(200, req)
+
+        # Check result
+        req = self.client.get(
+            "/api/projects/raclette/bills/1", headers=self.get_auth("raclette")
+        )
+        self.assertStatus(200, req)
+        expected_amount = self.converter.exchange_currency(30.0, "CAD", "EUR")
+        expected = {
+            "what": "fromage",
+            "payer_id": 1,
+            "owers": [
+                {"activated": True, "id": 1, "name": "zorglub", "weight": 1.0},
+                {"activated": True, "id": 2, "name": "fred", "weight": 1.0},
+            ],
+            "amount": 30.0,
+            "date": "2011-08-10",
+            "id": 1,
+            "converted_amount": expected_amount,
+            "original_currency": "CAD",
+            "external_link": "https://raclette.fr",
+        }
+
+        got = json.loads(req.data.decode("utf-8"))
+        del got["creation_date"]
+        self.assertDictEqual(expected, got)
+
+        # Add a bill with yet another currency
+        req = self.client.post(
+            "/api/projects/raclette/bills",
+            data={
+                "date": "2011-09-10",
+                "what": "Pierogi",
+                "payer": "1",
+                "payed_for": ["2", "3"],
+                "amount": "80",
+                "original_currency": "PLN",
+            },
+            headers=self.get_auth("raclette"),
+        )
+
+        # should return the id
+        self.assertStatus(201, req)
+        self.assertEqual(req.data.decode("utf-8"), "2\n")
+
+        # Try to remove default project currency, it should fail
+        req = self.client.put(
+            "/api/projects/raclette",
+            data={
+                "contact_email": "yeah@notmyidea.org",
+                "default_currency": "XXX",
+                "password": "raclette",
+                "name": "The raclette party",
+            },
+            headers=self.get_auth("raclette"),
+        )
+        self.assertStatus(400, req)
+        self.assertIn("This project cannot be set", req.data.decode("utf-8"))
+        self.assertIn(
+            "because it contains bills in multiple currencies", req.data.decode("utf-8")
+        )
+
     def test_statistics(self):
         # create a project
         self.api_create("raclette")
 
-        # add members
+        # add participants
         self.api_add_member("raclette", "zorglub")
         self.api_add_member("raclette", "fred")
 
@@ -624,7 +791,7 @@ class APITestCase(IhatemoneyTestCase):
         self.post_project("raclette")
         self.login("raclette")
 
-        # add members
+        # add participants
         self.api_add_member("raclette", "<script>")
 
         result = self.client.get("/raclette/")
@@ -634,7 +801,7 @@ class APITestCase(IhatemoneyTestCase):
         # create a project
         self.api_create("raclette")
 
-        # add members
+        # add participants
         self.api_add_member("raclette", "zorglub")
         self.api_add_member("raclette", "freddy familly", 4)
         self.api_add_member("raclette", "quentin")
@@ -674,7 +841,7 @@ class APITestCase(IhatemoneyTestCase):
             "id": 1,
             "external_link": "",
             "converted_amount": 25.0,
-            "original_currency": "USD",
+            "original_currency": "XXX",
         }
         got = json.loads(req.data.decode("utf-8"))
         self.assertEqual(
@@ -717,7 +884,7 @@ class APITestCase(IhatemoneyTestCase):
             "id": "raclette",
             "name": "raclette",
             "logging_preference": 1,
-            "default_currency": "USD",
+            "default_currency": "XXX",
         }
 
         self.assertStatus(200, req)
@@ -729,7 +896,7 @@ class APITestCase(IhatemoneyTestCase):
         self.api_create("raclette")
         self.login("raclette")
 
-        # add members
+        # add participants
         self.api_add_member("raclette", "zorglub")
 
         resp = self.client.get("/raclette/history", follow_redirects=True)
@@ -742,6 +909,14 @@ class APITestCase(IhatemoneyTestCase):
         )
         self.assertEqual(resp.data.decode("utf-8").count("<td> -- </td>"), 2)
         self.assertNotIn("127.0.0.1", resp.data.decode("utf-8"))
+
+    def test_project_creation_with_mixed_case(self):
+        self.api_create("Raclette")
+        # get information about it
+        resp = self.client.get(
+            "/api/projects/Raclette", headers=self.get_auth("Raclette")
+        )
+        self.assertStatus(200, resp)
 
 
 if __name__ == "__main__":

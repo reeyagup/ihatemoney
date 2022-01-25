@@ -7,8 +7,10 @@ from flask import Flask, g, render_template, request, session
 from flask_babel import Babel, format_currency
 from flask_mail import Mail
 from flask_migrate import Migrate, stamp, upgrade
+from flask_talisman import Talisman
 from jinja2 import pass_context
 from markupsafe import Markup
+import pytz
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from ihatemoney import default_settings
@@ -125,6 +127,24 @@ def create_app(
         instance_relative_config=instance_relative_config,
     )
 
+    # If we need to load external JS/CSS/image resources, it needs to be added here, see
+    # https://github.com/wntrblm/flask-talisman#content-security-policy
+    csp = {
+        "default-src": ["'self'"],
+        # We have several inline javascript scripts :(
+        "script-src": ["'self'", "'unsafe-inline'"],
+        "object-src": "'none'",
+    }
+
+    Talisman(
+        app,
+        # Forcing HTTPS is the job of a reverse proxy
+        force_https=False,
+        # This is handled separately through the SESSION_COOKIE_SECURE Flask setting
+        session_cookie_secure=False,
+        content_security_policy=csp,
+    )
+
     # If a configuration object is passed, use it. Otherwise try to find one.
     load_configuration(app, configuration)
     app.wsgi_app = PrefixedWSGI(app)
@@ -159,7 +179,15 @@ def create_app(
     # Translations and time zone (used to display dates).  The timezone is
     # taken from the BABEL_DEFAULT_TIMEZONE settings, and falls back to
     # the local timezone of the server OS by using LOCALTZ.
-    babel = Babel(app, default_timezone=str(LOCALTZ))
+
+    # On some bare systems, LOCALTZ is a fake object unusable by Flask-Babel, so use UTC instead
+    default_timezone = "UTC"
+    try:
+        pytz.timezone(str(LOCALTZ))
+        default_timezone = str(LOCALTZ)
+    except pytz.exceptions.UnknownTimeZoneError:
+        pass
+    babel = Babel(app, default_timezone=default_timezone)
 
     # Undocumented currencyformat filter from flask_babel is forwarding to Babel format_currency
     # We overwrite it to remove the currency sign ¤ when there is no currency

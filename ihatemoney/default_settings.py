@@ -8,22 +8,29 @@ ACTIVATE_DEMO_PROJECT = True
 ADMIN_PASSWORD = ""
 ALLOW_PUBLIC_PROJECT_CREATION = True
 ACTIVATE_ADMIN_DASHBOARD = False
+SESSION_COOKIE_SECURE = True
 SUPPORTED_LANGUAGES = [
     "de",
+    "el",
     "en",
+    "eo",
     "es_419",
     "fr",
     "hi",
     "id",
+    "it",
+    "ja",
     "nb_NO",
     "nl",
     "pl",
     "pt",
     "pt_BR",
     "ru",
+    "sv",
     "ta",
     "tr",
     "uk",
     "zh_Hans",
-    "ja",
 ]
+ENABLE_CAPTCHA = False
+LEGAL_LINK = ""

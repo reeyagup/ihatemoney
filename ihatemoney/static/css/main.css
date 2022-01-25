@@ -28,6 +28,7 @@ body {
 }
 .navbar-brand {
   font-family: "Lobster", arial, serif;
+  font-size: 1.5rem;
 }
 
 @media (min-width: 992px) {
@@ -66,6 +67,11 @@ body {
 
 #header .showcaseimg {
   width: 55px;
+}
+
+#header .side-to-side {
+  /* avoid the man with his hand pointing at nothing */
+  white-space: nowrap;
 }
 
 #header .shareimg {
@@ -120,14 +126,6 @@ body {
   .identifier {
     margin-bottom: 0;
   }
-}
-
-#add-member-form {
-  padding-top: 1em;
-  padding-bottom: 1em;
-}
-#add-member-form input[type="text"] {
-  width: 60%;
 }
 
 #table_overflow {
@@ -233,7 +231,7 @@ footer p.footer-links a {
 footer .footer-right {
   float: right;
   margin-top: 6px;
-  max-width: 180px;
+  max-width: 225px;
 }
 
 footer .footer-right a {
@@ -285,27 +283,9 @@ footer .footer-left {
   }
 }
 
-#new-bill {
-  margin-top: 30px;
-}
-
-#previous-page {
-  margin-top: 30px;
-}
-
-#next-page {
-  margin-top: 30px;
-  padding-left: 2em;
-}
-
 /* Avoid text color flickering when it loose focus as the modal appears */
 .btn-primary[data-toggle="modal"] {
   color: #fff;
-}
-
-.confirm,
-.confirm:hover {
-  color: red;
 }
 
 .bill-actions {
@@ -313,7 +293,7 @@ footer .footer-left {
   text-align: center;
 }
 
-.bill-actions > .delete,
+.bill-actions > form > .delete,
 .bill-actions > .edit,
 .bill-actions > .show {
   font-size: 0px;
@@ -323,9 +303,10 @@ footer .footer-left {
   margin: 2px;
   margin-left: 5px;
   float: left;
+  border: none;
 }
 
-.bill-actions > .delete {
+.bill-actions > form > .delete {
   background: url("../images/delete.png") no-repeat right;
 }
 
@@ -342,6 +323,14 @@ footer .footer-left {
 #history_table {
   margin-top: 30px;
   margin-bottom: 30px;
+  flex-basis: auto;
+}
+
+#bill-toolbar {
+  position: sticky;
+  top: 4em;
+  z-index: 1;
+  background-color: rgba(255, 255, 255, 0.75);
 }
 
 @media (min-width: 768px) {
@@ -466,13 +455,8 @@ tr.payer_line .balance-name {
   margin-top: 10px;
 }
 
-.messages {
-  display: flex;
-  justify-content: center;
-  position: absolute;
-  top: 4.5rem;
-  width: 100%;
-  pointer-events: none;
+.flash {
+  z-index: 1031;
 }
 
 .light {
@@ -539,6 +523,10 @@ tr:hover .extra-info {
 }
 .navbar-dark .navbar-nav .show > .nav-link svg {
   fill: white;
+}
+.navbar-dark .dropdown-menu {
+  max-height: 50vh;
+  overflow-y: auto;
 }
 .icon svg {
   display: inline-block;

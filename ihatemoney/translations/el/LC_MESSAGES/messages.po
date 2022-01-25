@@ -3,8 +3,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2020-05-30 21:50+0200\n"
-"PO-Revision-Date: 2021-07-03 22:35+0000\n"
+"POT-Creation-Date: 2021-11-01 18:01+0100\n"
+"PO-Revision-Date: 2021-08-01 08:34+0000\n"
 "Last-Translator: Eugenia Russell <eugenia.russell2019@gmail.com>\n"
 "Language: el\n"
 "Language-Team: Greek <https://hosted.weblate.org/projects/i-hate-money/i"
@@ -13,9 +13,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.8-dev\n"
-"Generated-By: Babel 2.8.0\n"
+"Generated-By: Babel 2.9.0\n"
 
 msgid ""
 "Not a valid amount or expression. Only numbers and + - * / operators are "
@@ -29,6 +27,9 @@ msgstr "Τίτλος εργασίας"
 msgid "New private code"
 msgstr "Ιδιωτικός κωδικός"
 
+msgid "Enter a new code if you want to change it"
+msgstr "Εισαγάγετε έναν νέο κωδικό εάν θέλετε να τον αλλάξετε"
+
 msgid "Email"
 msgstr "Ηλεκτρονικό ταχυδρομείο"
 
@@ -41,10 +42,15 @@ msgstr "Χρήση παρακολούθησης IP για ιστορικό έρ�
 msgid "Default Currency"
 msgstr "Προεπιλεγμένο Νόμισμα"
 
+msgid "Setting a default currency enables currency conversion between bills"
+msgstr ""
+
 msgid ""
 "This project cannot be set to 'no currency' because it contains bills in "
 "multiple currencies."
 msgstr ""
+"Αυτό το έργο δεν μπορεί να οριστεί σε \"χωρίς νόμισμα\" επειδή περιέχει "
+"λογαριασμούς σε πολλαπλά νομίσματα."
 
 msgid "Import previously exported JSON file"
 msgstr "Εισαγωγή αρχείου JSON που έχει εξαχθεί προηγουμένως"
@@ -66,6 +72,29 @@ msgid ""
 "A project with this identifier (\"%(project)s\") already exists. Please "
 "choose a new identifier"
 msgstr ""
+"Ένα έργο με αυτό το αναγνωριστικό (\"%(project)s\") υπάρχει ήδη. Παρακαλώ"
+" επιλέξτε ένα νέο αναγνωριστικό"
+
+msgid "Which is a real currency: Euro or Petro dollar?"
+msgstr ""
+
+#, fuzzy
+msgid "euro"
+msgstr "Περίοδος"
+
+msgid "Please, validate the captcha to proceed."
+msgstr ""
+
+msgid "Enter private code to confirm deletion"
+msgstr "Εισαγάγετε ιδιωτικό κωδικό για επιβεβαίωση της διαγραφής"
+
+#, fuzzy
+msgid "Unknown error"
+msgstr "Άγνωστο πρότζεκτ"
+
+#, fuzzy
+msgid "Invalid private code."
+msgstr "Ιδιωτικός κωδικός"
 
 msgid "Get in"
 msgstr "Συνδεθείτε"
@@ -142,14 +171,16 @@ msgstr "Βάρος"
 msgid "Add"
 msgstr "Προσθήκη"
 
-msgid "User name incorrect"
-msgstr "Λανθασμένο όνομα χρήστη"
+#, fuzzy
+msgid "The participant name is invalid"
+msgstr "Ο χρήστης '%(name)s' έχει αφαιρεθεί"
 
-msgid "This project already have this member"
+#, fuzzy
+msgid "This project already have this participant"
 msgstr "Αυτό το έργο έχει ήδη αυτό το μέλος"
 
 msgid "People to notify"
-msgstr "Πρόσωπα προς ενημέρωση"
+msgstr ""
 
 msgid "Send invites"
 msgstr "Αποστολή προσκλήσεων"
@@ -158,17 +189,32 @@ msgstr "Αποστολή προσκλήσεων"
 msgid "The email %(email)s is not valid"
 msgstr "Το μήνυμα ηλεκτρονικού ταχυδρομείου %(email)s δεν είναι έγκυρο"
 
-msgid "Participant"
-msgstr "Συμμέτοχος"
+#. List with two items only
+msgid "{dual_object_0} and {dual_object_1}"
+msgstr ""
 
-msgid "Bill"
-msgstr "Λογαριασμός"
+#. Last two items of a list with more than 3 items
+msgid "{previous_object}, and {end_object}"
+msgstr ""
 
-msgid "Project"
-msgstr "Πρότζεκτ"
+#. Two items in a middle of a list with more than 5 objects
+msgid "{previous_object}, {next_object}"
+msgstr ""
+
+#. First two items of a list with more than 3 items
+msgid "{start_object}, {next_object}"
+msgstr ""
 
 msgid "No Currency"
 msgstr "Κανένα νόμισμα"
+
+#. Form error with only one error
+msgid "{prefix}: {error}"
+msgstr "{prefix}: {error}"
+
+#. Form error with a list of errors
+msgid "{prefix}:<br />{errors}"
+msgstr ""
 
 msgid "Too many failed login attempts, please retry later."
 msgstr "Πάρα πολλές αποτυχημένες προσπάθειες σύνδεσης, δοκιμάστε ξανά αργότερα."
@@ -179,8 +225,8 @@ msgstr ""
 "Αυτός ο κωδικός διαχειριστή δεν είναι σωστός. Μένουν μόνο %(num)d "
 "προσπάθειες."
 
-msgid "You either provided a bad token or no project identifier."
-msgstr "Είτε δώσατε ένα εσφαλμένο διακριτικό είτε δεν δώσατε αναγνωριστικό έργου."
+msgid "Provided token is invalid"
+msgstr ""
 
 msgid "This private code is not the right one"
 msgstr "Αυτός ο ιδιωτικός κωδικός δεν είναι ο σωστός"
@@ -227,8 +273,16 @@ msgstr "Έργο που φορτώθηκε επιτυχώς"
 msgid "Invalid JSON"
 msgstr "Η JSON δεν είναι έγκυρη"
 
+msgid ""
+"Cannot add bills in multiple currencies to a project without default "
+"currency"
+msgstr ""
+
 msgid "Project successfully deleted"
 msgstr "Το πρότζεκτ διαγράφηκε επιτυχώς"
+
+msgid "Error deleting project"
+msgstr ""
 
 #, python-format
 msgid "You have been invited to share your expenses for %(project)s"
@@ -247,32 +301,56 @@ msgstr ""
 msgid "%(member)s has been added"
 msgstr "%(member)s έχει προστεθεί"
 
+msgid "Error activating participant"
+msgstr ""
+
 #, python-format
 msgid "%(name)s is part of this project again"
 msgstr "%(name)s είναι και πάλι μέρος αυτού του έργου"
 
-#, python-format
-msgid ""
-"User '%(name)s' has been deactivated. It will still appear in the users "
-"list until its balance becomes zero."
+msgid "Error removing participant"
 msgstr ""
 
 #, python-format
-msgid "User '%(name)s' has been removed"
+msgid ""
+"Participant '%(name)s' has been deactivated. It will still appear in the "
+"list until its balance reach zero."
+msgstr ""
+
+#, fuzzy, python-format
+msgid "Participant '%(name)s' has been removed"
 msgstr "Ο χρήστης '%(name)s' έχει αφαιρεθεί"
 
-#, python-format
-msgid "User '%(name)s' has been edited"
-msgstr "Ο χρήστης \"%(name)s\" έχει τροποποιηθεί"
+#, fuzzy, python-format
+msgid "Participant '%(name)s' has been modified"
+msgstr "Ο χρήστης '%(name)s' έχει αφαιρεθεί"
 
 msgid "The bill has been added"
 msgstr "Ο λογαριασμός προστέθηκε"
+
+msgid "Error deleting bill"
+msgstr ""
 
 msgid "The bill has been deleted"
 msgstr "Ο λογαριασμός έχει διαγραφεί"
 
 msgid "The bill has been modified"
 msgstr "Ο λογαριασμός έχει τροποποιηθεί"
+
+#, fuzzy
+msgid "Error deleting project history"
+msgstr "Ενεργοποίηση ιστορικού έργων"
+
+#, fuzzy
+msgid "Deleted project history."
+msgstr "Ενεργοποίηση ιστορικού έργων"
+
+#, fuzzy
+msgid "Error deleting recorded IP addresses"
+msgstr "Διαγραφή αποθηκευμένων διευθύνσεων IP"
+
+msgid "Deleted recorded IP addresses in project history."
+msgstr ""
 
 msgid "Sorry, we were unable to find the page you've asked for."
 msgstr "Λυπούμαστε, δεν ήταν δυνατή η εύρεση της σελίδας που ζητήσατε."
@@ -285,6 +363,9 @@ msgstr "Επιστροφή στη λίστα"
 
 msgid "Administration tasks are currently disabled."
 msgstr "Οι εργασίες διαχείρισης είναι προς το παρόν απενεργοποιημένες."
+
+msgid "Authentication"
+msgstr ""
 
 msgid "The project you are trying to access do not exist, do you want to"
 msgstr ""
@@ -300,8 +381,12 @@ msgstr ";"
 msgid "Create a new project"
 msgstr "Δημιουργία νέου έργου"
 
-msgid "Number of members"
-msgstr "Αριθμός μελών"
+msgid "Project"
+msgstr "Πρότζεκτ"
+
+#, fuzzy
+msgid "Number of participants"
+msgstr "Προσθήκη συμμετέχοντος"
 
 msgid "Number of bills"
 msgstr "Αριθμός λογαριασμών"
@@ -334,10 +419,15 @@ msgstr ""
 msgid "Get it on"
 msgstr "Συνδεθείτε"
 
-msgid "you sure?"
+#, fuzzy
+msgid "Are you sure?"
 msgstr "Είστε σίγουρος;"
 
 msgid "Edit project"
+msgstr "Επεξεργασία έργου"
+
+#, fuzzy
+msgid "Delete project"
 msgstr "Επεξεργασία έργου"
 
 msgid "Import JSON"
@@ -377,23 +467,30 @@ msgstr "Ρυθμίσεις απορρήτου"
 msgid "Edit the project"
 msgstr "Επεξεργαστείτε το έργο"
 
+msgid "This will remove all bills and participants in this project!"
+msgstr ""
+
 msgid "Edit this bill"
 msgstr "Επεξεργαστείτε αυτόν τον λογαριασμό"
 
 msgid "Add a bill"
 msgstr "Προσθήκη λογαριασμού"
 
-msgid "Select all"
-msgstr "Επιλογή όλων"
+msgid "Everyone"
+msgstr ""
 
-msgid "Select none"
-msgstr "Επιλογή κανενός"
+msgid "No one"
+msgstr ""
+
+msgid "More options"
+msgstr ""
 
 msgid "Add participant"
 msgstr "Προσθήκη συμμετέχοντος"
 
-msgid "Edit this member"
-msgstr "Επεξεργασία αυτού του μέλους"
+#, fuzzy
+msgid "Edit this participant"
+msgstr "Προσθήκη συμμετέχοντος"
 
 msgid "john.doe@example.com, mary.moe@site.com"
 msgstr ""
@@ -425,14 +522,13 @@ msgstr ""
 msgid "History Settings Changed"
 msgstr "Αλλαγή ρυθμίσεων ιστορικού"
 
-msgid "changed"
-msgstr "μεταβολή"
+#, python-format
+msgid "Bill %(name)s: %(property_name)s changed from %(before)s to %(after)s"
+msgstr ""
 
-msgid "from"
-msgstr "από"
-
-msgid "to"
-msgstr "προς"
+#, python-format
+msgid "Bill %(name)s: %(property_name)s changed to %(after)s"
+msgstr ""
 
 msgid "Confirm Remove IP Adresses"
 msgstr ""
@@ -444,11 +540,12 @@ msgid ""
 "action cannot be undone."
 msgstr ""
 
+#, fuzzy
+msgid "Confirm deletion"
+msgstr "Επιβεβαίωση Διαγραφής;"
+
 msgid "Close"
 msgstr "Κλείστε"
-
-msgid "Confirm Delete"
-msgstr "Επιβεβαίωση Διαγραφής;"
 
 msgid "Delete Confirmation"
 msgstr "Επιβεβαίωση Διαγραφής"
@@ -458,17 +555,13 @@ msgid ""
 "cannot be undone."
 msgstr ""
 
-msgid "Added"
-msgstr "Προστέθηκε"
+#, python-format
+msgid "Bill %(name)s: added %(owers_list_str)s to owers list"
+msgstr ""
 
-msgid "Removed"
-msgstr "Καταργήθηκε"
-
-msgid "and"
-msgstr "και"
-
-msgid "owers list"
-msgstr "λίστα οφειλών"
+#, python-format
+msgid "Bill %(name)s: removed %(owers_list_str)s from owers list"
+msgstr ""
 
 #, python-format
 msgid ""
@@ -524,32 +617,51 @@ msgstr ""
 msgid "From IP"
 msgstr "Από IP"
 
-msgid "added"
-msgstr "προστέθηκε"
+#, fuzzy, python-format
+msgid "Project %(name)s added"
+msgstr "Τίτλος εργασίας"
+
+#, fuzzy, python-format
+msgid "Bill %(name)s added"
+msgstr "Ο λογαριασμός προστέθηκε"
+
+#, python-format
+msgid "Participant %(name)s added"
+msgstr ""
 
 msgid "Project private code changed"
 msgstr "Ο ιδιωτικός κωδικός έργου άλλαξε"
 
-msgid "Project renamed to"
-msgstr "Το έργο μετονομάστηκε σε"
+#, fuzzy, python-format
+msgid "Project renamed to %(new_project_name)s"
+msgstr "Το αναγνωριστικό έργου είναι %(new_project_name)s"
 
-msgid "Project contact email changed to"
+#, fuzzy, python-format
+msgid "Project contact email changed to %(new_email)s"
 msgstr "Το μήνυμα ηλεκτρονικού ταχυδρομείου επικοινωνίας έργου άλλαξε σε"
 
 msgid "Project settings modified"
 msgstr "Τροποποιημένες ρυθμίσεις έργου"
 
-msgid "deactivated"
-msgstr "απενεργοποιήθη"
+#, python-format
+msgid "Participant %(name)s deactivated"
+msgstr ""
 
-msgid "reactivated"
-msgstr "επανενεργοποιήθη"
+#, python-format
+msgid "Participant %(name)s reactivated"
+msgstr ""
 
-msgid "renamed to"
-msgstr "μετονομάστηκε σε"
+#, python-format
+msgid "Participant %(name)s renamed to %(new_name)s"
+msgstr ""
 
-msgid "External link changed to"
-msgstr "Ο εξωτερικός σύνδεσμος άλλαξε σε"
+#, python-format
+msgid "Bill %(name)s renamed to %(new_description)s"
+msgstr ""
+
+#, python-format
+msgid "Participant %(name)s: weight changed from %(old_weight)s to %(new_weight)s"
+msgstr ""
 
 msgid "Amount"
 msgstr "Ποσό"
@@ -558,13 +670,32 @@ msgstr "Ποσό"
 msgid "Amount in %(currency)s"
 msgstr "Ποσό σε %(currency)s"
 
-msgid "modified"
-msgstr "τροποποιήθη"
+#, fuzzy, python-format
+msgid "Bill %(name)s modified"
+msgstr "Ο λογαριασμός έχει τροποποιηθεί"
 
-msgid "removed"
-msgstr "αφαιρέθηκε"
+#, python-format
+msgid "Participant %(name)s modified"
+msgstr ""
 
-msgid "changed in a unknown way"
+#, fuzzy, python-format
+msgid "Bill %(name)s removed"
+msgstr "Ο χρήστης '%(name)s' έχει αφαιρεθεί"
+
+#, fuzzy, python-format
+msgid "Participant %(name)s removed"
+msgstr "Ο χρήστης '%(name)s' έχει αφαιρεθεί"
+
+#, fuzzy, python-format
+msgid "Project %(name)s changed in an unknown way"
+msgstr "άλλαξε με άγνωστο τρόπο"
+
+#, fuzzy, python-format
+msgid "Bill %(name)s changed in an unknown way"
+msgstr "άλλαξε με άγνωστο τρόπο"
+
+#, fuzzy, python-format
+msgid "Participant %(name)s changed in an unknown way"
 msgstr "άλλαξε με άγνωστο τρόπο"
 
 msgid "Nothing to list"
@@ -659,7 +790,11 @@ msgstr ""
 msgid "Administation Dashboard"
 msgstr ""
 
-msgid "\"I hate money\" is a free software"
+#, fuzzy
+msgid "Legal information"
+msgstr "Επιβεβαίωση Διαγραφής"
+
+msgid "\"I hate money\" is free software"
 msgstr ""
 
 msgid "you can contribute and improve it!"
@@ -668,6 +803,9 @@ msgstr ""
 #, python-format
 msgid "%(amount)s each"
 msgstr ""
+
+msgid "you sure?"
+msgstr "Είστε σίγουρος;"
 
 msgid "Invite people"
 msgstr ""
@@ -698,9 +836,6 @@ msgstr ""
 
 #, python-format
 msgid "Added on %(date)s"
-msgstr ""
-
-msgid "Everyone"
 msgstr ""
 
 #, python-format
@@ -815,3 +950,70 @@ msgstr "Περίοδος"
 #~ " a personal password!"
 #~ msgstr ""
 
+#~ msgid "Participant"
+#~ msgstr "Συμμέτοχος"
+
+#~ msgid "Bill"
+#~ msgstr "Λογαριασμός"
+
+#~ msgid "Select all"
+#~ msgstr "Επιλογή όλων"
+
+#~ msgid "Select none"
+#~ msgstr "Επιλογή κανενός"
+
+#~ msgid "changed"
+#~ msgstr "μεταβολή"
+
+#~ msgid "from"
+#~ msgstr "από"
+
+#~ msgid "to"
+#~ msgstr "προς"
+
+#~ msgid "Added"
+#~ msgstr "Προστέθηκε"
+
+#~ msgid "Removed"
+#~ msgstr "Καταργήθηκε"
+
+#~ msgid "and"
+#~ msgstr "και"
+
+#~ msgid "owers list"
+#~ msgstr "λίστα οφειλών"
+
+#~ msgid "added"
+#~ msgstr "προστέθηκε"
+
+#~ msgid "Project renamed to"
+#~ msgstr "Το έργο μετονομάστηκε σε"
+
+#~ msgid "deactivated"
+#~ msgstr "απενεργοποιήθη"
+
+#~ msgid "reactivated"
+#~ msgstr "επανενεργοποιήθη"
+
+#~ msgid "renamed to"
+#~ msgstr "μετονομάστηκε σε"
+
+#~ msgid "External link changed to"
+#~ msgstr "Ο εξωτερικός σύνδεσμος άλλαξε σε"
+
+#~ msgid "modified"
+#~ msgstr "τροποποιήθη"
+
+#~ msgid "removed"
+#~ msgstr "αφαιρέθηκε"
+
+#~ msgid "You either provided a bad token or no project identifier."
+#~ msgstr ""
+#~ "Είτε δώσατε ένα εσφαλμένο διακριτικό "
+#~ "είτε δεν δώσατε αναγνωριστικό έργου."
+
+#~ msgid "User name incorrect"
+#~ msgstr "Λανθασμένο όνομα χρήστη"
+
+#~ msgid "People to notify"
+#~ msgstr "Πρόσωπα προς ενημέρωση"

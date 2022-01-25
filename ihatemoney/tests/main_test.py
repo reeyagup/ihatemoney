@@ -31,6 +31,7 @@ class ConfigurationTestCase(BaseTestCase):
         self.assertTrue(self.app.config["ACTIVATE_DEMO_PROJECT"])
         self.assertTrue(self.app.config["ALLOW_PUBLIC_PROJECT_CREATION"])
         self.assertFalse(self.app.config["ACTIVATE_ADMIN_DASHBOARD"])
+        self.assertFalse(self.app.config["ENABLE_CAPTCHA"])
 
     def test_env_var_configuration_file(self):
         """Test that settings are loaded from a configuration file specified
@@ -98,7 +99,7 @@ class CommandTestCase(BaseTestCase):
 
     def test_demo_project_deletion(self):
         self.create_project("demo")
-        self.assertEqual(models.Project.query.get("demo").name, "demo")
+        self.assertEqual(self.get_project("demo").name, "demo")
 
         runner = self.app.test_cli_runner()
         runner.invoke(delete_project, "demo")
@@ -107,6 +108,62 @@ class CommandTestCase(BaseTestCase):
 
 
 class ModelsTestCase(IhatemoneyTestCase):
+    def test_weighted_bills(self):
+        """Test the SQL request that fetch all bills and weights"""
+        self.post_project("raclette")
+
+        # add members
+        self.client.post("/raclette/members/add", data={"name": "zorglub", "weight": 2})
+        self.client.post("/raclette/members/add", data={"name": "fred"})
+        self.client.post("/raclette/members/add", data={"name": "tata"})
+        # Add a member with a balance=0 :
+        self.client.post("/raclette/members/add", data={"name": "pépé"})
+
+        # create bills
+        self.client.post(
+            "/raclette/add",
+            data={
+                "date": "2011-08-10",
+                "what": "fromage à raclette",
+                "payer": 1,
+                "payed_for": [1, 2, 3],
+                "amount": "10.0",
+            },
+        )
+
+        self.client.post(
+            "/raclette/add",
+            data={
+                "date": "2011-08-10",
+                "what": "red wine",
+                "payer": 2,
+                "payed_for": [1],
+                "amount": "20",
+            },
+        )
+
+        self.client.post(
+            "/raclette/add",
+            data={
+                "date": "2011-08-10",
+                "what": "delicatessen",
+                "payer": 1,
+                "payed_for": [1, 2],
+                "amount": "10",
+            },
+        )
+        project = models.Project.query.get_by_name(name="raclette")
+        for (weight, bill) in project.get_bill_weights().all():
+            if bill.what == "red wine":
+                pay_each_expected = 20 / 2
+                self.assertEqual(bill.amount / weight, pay_each_expected)
+            if bill.what == "fromage à raclette":
+                pay_each_expected = 10 / 4
+                self.assertEqual(bill.amount / weight, pay_each_expected)
+            if bill.what == "delicatessen":
+                pay_each_expected = 10 / 3
+                self.assertEqual(bill.amount / weight, pay_each_expected)
+
     def test_bill_pay_each(self):
 
         self.post_project("raclette")
@@ -241,9 +298,73 @@ class EmailFailureTestCase(IhatemoneyTestCase):
             )
 
 
+class CaptchaTestCase(IhatemoneyTestCase):
+    ENABLE_CAPTCHA = True
+
+    def test_project_creation_with_captcha(self):
+        with self.client as c:
+            c.post(
+                "/create",
+                data={
+                    "name": "raclette party",
+                    "id": "raclette",
+                    "password": "party",
+                    "contact_email": "raclette@notmyidea.org",
+                    "default_currency": "USD",
+                },
+            )
+            assert len(models.Project.query.all()) == 0
+
+            c.post(
+                "/create",
+                data={
+                    "name": "raclette party",
+                    "id": "raclette",
+                    "password": "party",
+                    "contact_email": "raclette@notmyidea.org",
+                    "default_currency": "USD",
+                    "captcha": "nope",
+                },
+            )
+            assert len(models.Project.query.all()) == 0
+
+            c.post(
+                "/create",
+                data={
+                    "name": "raclette party",
+                    "id": "raclette",
+                    "password": "party",
+                    "contact_email": "raclette@notmyidea.org",
+                    "default_currency": "USD",
+                    "captcha": "euro",
+                },
+            )
+            assert len(models.Project.query.all()) == 1
+
+    def test_api_project_creation_does_not_need_captcha(self):
+        self.client.get("/")
+        resp = self.client.post(
+            "/api/projects",
+            data={
+                "name": "raclette",
+                "id": "raclette",
+                "password": "raclette",
+                "contact_email": "raclette@notmyidea.org",
+            },
+        )
+        self.assertTrue(resp.status, 201)
+        assert len(models.Project.query.all()) == 1
+
+
 class TestCurrencyConverter(unittest.TestCase):
     converter = CurrencyConverter()
-    mock_data = {"USD": 1, "EUR": 0.8, "CAD": 1.2, CurrencyConverter.no_currency: 1}
+    mock_data = {
+        "USD": 1,
+        "EUR": 0.8,
+        "CAD": 1.2,
+        "PLN": 4,
+        CurrencyConverter.no_currency: 1,
+    }
     converter.get_rates = MagicMock(return_value=mock_data)
 
     def test_only_one_instance(self):
@@ -254,7 +375,7 @@ class TestCurrencyConverter(unittest.TestCase):
     def test_get_currencies(self):
         self.assertCountEqual(
             self.converter.get_currencies(),
-            ["USD", "EUR", "CAD", CurrencyConverter.no_currency],
+            ["USD", "EUR", "CAD", "PLN", CurrencyConverter.no_currency],
         )
 
     def test_exchange_currency(self):

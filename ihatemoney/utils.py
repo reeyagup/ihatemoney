@@ -2,7 +2,7 @@ import ast
 import csv
 from datetime import datetime, timedelta
 from enum import Enum
-from io import BytesIO, StringIO
+from io import BytesIO, StringIO, TextIOWrapper
 from json import JSONEncoder, dumps
 import operator
 import os
@@ -15,6 +15,7 @@ from babel.numbers import get_currency_name, get_currency_symbol
 from flask import current_app, escape, redirect, render_template
 from flask_babel import get_locale, lazy_gettext as _
 import jinja2
+from markupsafe import Markup
 from werkzeug.routing import HTTPException, RoutingException
 
 
@@ -149,6 +150,31 @@ def list_of_dicts2csv(dict_to_convert):
     return csv_file
 
 
+def csv2list_of_dicts(csv_to_convert):
+    """Take a csv in-memory file and turns it into
+    a list of dictionnaries
+    """
+    csv_file = TextIOWrapper(csv_to_convert, encoding="utf-8")
+    reader = csv.DictReader(csv_file)
+    result = []
+    for r in reader:
+        """
+        cospend embeds various data helping (cospend) imports
+        'deleteMeIfYouWant' lines contains users
+        'categoryname' table contains categories description
+        we don't need them as we determine users and categories from bills
+        """
+        if r["what"] == "deleteMeIfYouWant":
+            continue
+        elif r["what"] == "categoryname":
+            break
+        r["amount"] = float(r["amount"])
+        r["payer_weight"] = float(r["payer_weight"])
+        r["owers"] = [o.strip() for o in r["owers"].split(",")]
+        result.append(r)
+    return result
+
+
 class LoginThrottler:
     """Simple login throttler used to limit authentication attempts based on client's ip address.
     When using multiple workers, remaining number of attempts can get inconsistent
@@ -217,10 +243,7 @@ class IhmJSONEncoder(JSONEncoder):
                 from flask_babel import speaklater
 
                 if isinstance(o, speaklater.LazyString):
-                    try:
-                        return unicode(o)  # For python 2.
-                    except NameError:
-                        return str(o)  # For python 3.
+                    return str(o)
             except ImportError:
                 pass
             return JSONEncoder.default(self, o)
@@ -270,7 +293,7 @@ def get_members(file):
 
 
 def same_bill(bill1, bill2):
-    attr = ["what", "payer_name", "payer_weight", "amount", "date", "owers"]
+    attr = ["what", "payer_name", "payer_weight", "amount", "currency", "date", "owers"]
     for a in attr:
         if bill1[a] != bill2[a]:
             return False
@@ -369,6 +392,7 @@ def localize_list(items, surround_with_em=True):
 
 
 def render_localized_currency(code, detailed=True):
+    # We cannot use CurrencyConvertor.no_currency here because of circular dependencies
     if code == "XXX":
         return _("No Currency")
     locale = get_locale() or "en_US"
@@ -394,3 +418,23 @@ def render_localized_template(template_name_prefix, **context):
     ]
     # render_template() supports a list of templates to try in order
     return render_template(templates, **context)
+
+
+def format_form_errors(form, prefix):
+    """Format all form errors into a single string, with a string prefix in
+    front.  Useful for flashing the result.
+    """
+    if len(form.errors) == 0:
+        return ""
+    elif len(form.errors) == 1:
+        # I18N: Form error with only one error
+        return _("{prefix}: {error}").format(
+            prefix=prefix, error=form.errors.popitem()[1][0]
+        )
+    else:
+        error_list = "</li><li>".join(
+            str(error) for (field, errors) in form.errors.items() for error in errors
+        )
+        errors = f"<ul><li>{error_list}</li></ul>"
+        # I18N: Form error with a list of errors
+        return Markup(_("{prefix}:<br />{errors}").format(prefix=prefix, errors=errors))

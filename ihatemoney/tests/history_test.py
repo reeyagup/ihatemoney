@@ -222,7 +222,7 @@ class HistoryTestCase(IhatemoneyTestCase):
         )
         self.assertEqual(resp.status_code, 200)
         # delete the bill
-        resp = self.client.get(f"/demo/delete/{bill_id}", follow_redirects=True)
+        resp = self.client.post(f"/demo/delete/{bill_id}", follow_redirects=True)
         self.assertEqual(resp.status_code, 200)
 
         # delete user using POST method
@@ -235,6 +235,16 @@ class HistoryTestCase(IhatemoneyTestCase):
         # Disable logging
         self.change_privacy_to(LoggingMode.DISABLED)
 
+        # Ensure we can't clear history with a GET or with a password-less POST
+        resp = self.client.get("/demo/erase_history")
+        self.assertEqual(resp.status_code, 405)
+        resp = self.client.post("/demo/erase_history", follow_redirects=True)
+        self.assertIn(
+            "Error deleting project history",
+            resp.data.decode("utf-8"),
+        )
+
+        # List history
         resp = self.client.get("/demo/history")
         self.assertEqual(resp.status_code, 200)
         self.assertIn(
@@ -251,7 +261,11 @@ class HistoryTestCase(IhatemoneyTestCase):
         )
 
         # Clear Existing Entries
-        resp = self.client.post("/demo/erase_history", follow_redirects=True)
+        resp = self.client.post(
+            "/demo/erase_history",
+            data={"password": "demo"},
+            follow_redirects=True,
+        )
         self.assertEqual(resp.status_code, 200)
         self.assert_empty_history_logging_disabled()
 
@@ -295,8 +309,27 @@ class HistoryTestCase(IhatemoneyTestCase):
         self.assertEqual(resp.data.decode("utf-8").count("127.0.0.1"), 12)
         self.assertEqual(resp.data.decode("utf-8").count("<td> -- </td>"), 7)
 
-        # Clear IP Data
+        # Ensure we can't clear IP data with a GET or with a password-less POST
+        resp = self.client.get("/demo/strip_ip_addresses")
+        self.assertEqual(resp.status_code, 405)
         resp = self.client.post("/demo/strip_ip_addresses", follow_redirects=True)
+        self.assertIn(
+            "Error deleting recorded IP addresses",
+            resp.data.decode("utf-8"),
+        )
+
+        resp = self.client.get("/demo/history")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data.decode("utf-8").count("127.0.0.1"), 12)
+        self.assertEqual(resp.data.decode("utf-8").count("<td> -- </td>"), 7)
+
+        # Clear IP Data
+        resp = self.client.post(
+            "/demo/strip_ip_addresses",
+            data={"password": "123456"},
+            follow_redirects=True,
+        )
+
         self.assertEqual(resp.status_code, 200)
         self.assertNotIn(
             "This project has history disabled. New actions won't appear below. ",
@@ -389,7 +422,7 @@ class HistoryTestCase(IhatemoneyTestCase):
         )
 
         # delete the bill
-        resp = self.client.get("/demo/delete/1", follow_redirects=True)
+        resp = self.client.post("/demo/delete/1", follow_redirects=True)
         self.assertEqual(resp.status_code, 200)
 
         resp = self.client.get("/demo/history")
@@ -527,7 +560,7 @@ class HistoryTestCase(IhatemoneyTestCase):
         )
 
         # delete the bill
-        self.client.get("/demo/delete/1", follow_redirects=True)
+        self.client.post("/demo/delete/1", follow_redirects=True)
 
         resp = self.client.get("/demo/history")
         self.assertEqual(resp.status_code, 200)
@@ -581,14 +614,14 @@ class HistoryTestCase(IhatemoneyTestCase):
         models.db.session.add(b2)
         models.db.session.commit()
 
-        history_list = history.get_history(models.Project.query.get("demo"))
+        history_list = history.get_history(self.get_project("demo"))
         self.assertEqual(len(history_list), 5)
 
         # Change just the amount
         b1.amount = 5
         models.db.session.commit()
 
-        history_list = history.get_history(models.Project.query.get("demo"))
+        history_list = history.get_history(self.get_project("demo"))
         for entry in history_list:
             if "prop_changed" in entry:
                 self.assertNotIn("owers", entry["prop_changed"])
